@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/doorListFragment">
+    <fragment
+        android:id="@+id/doorListFragment"
+        android:name="com.example.smartlock.ui.DoorListFragment"
+        android:label="Danh sách cửa"
+        tools:layout="@layout/door_list_fragment">
+
+        <action
+            android:id="@+id/action_doorListFragment_to_doorDetailFragment"
+            app:destination="@id/doorDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left">
+            <argument
+                android:name="doorId"
+                app:argType="string"/>
+        </action>
+
+        <action
+            android:id="@+id/action_doorListFragment_to_bleProvisionFragment"
+            app:destination="@id/bleProvisionFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+
+    </fragment>
+    <fragment
+        android:id="@+id/doorDetailFragment"
+        android:name="com.example.smartlock.ui.DoorDetailFragment"
+        android:label="Chi tiết cửa"
+        tools:layout="@layout/door_detail_fragment">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_sendEKeyFragment"
+            app:destination="@id/sendEKeyFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_icCardFragment"
+            app:destination="@id/icCardFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_eKeysFragment"
+            app:destination="@id/eKeysFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_passcodesFragment"
+            app:destination="@id/passcodesFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_generateEKeyFragment"
+            app:destination="@id/generateEKeyFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_authorizedAdminFragment"
+            app:destination="@id/authorizedAdminFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_recordsFragment"
+            app:destination="@id/recordsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_doorDetailFragment_to_settingsFragment"
+            app:destination="@id/settingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/sendEKeyFragment"
+        android:name="com.example.smartlock.ui.SendEKeyFragment"
+        android:label="Gửi eKey"
+        tools:layout="@layout/send_ekey_fragment">
+
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/icCardFragment"
+        android:name="com.example.smartlock.ui.ICCardFragment"
+        android:label="Thẻ IC"
+        tools:layout="@layout/fragment_ic_card">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/eKeysFragment"
+        android:name="com.example.smartlock.ui.EKeysFragment"
+        android:label="Danh sách eKey"
+        tools:layout="@layout/fragment_ekeys">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/passcodesFragment"
+        android:name="com.example.smartlock.ui.PasscodesFragment"
+        android:label="Danh sách Passcode"
+        tools:layout="@layout/fragment_passcodes">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_passcodesFragment_to_generatePasscodeFragment"
+            app:destination="@id/generateEKeyFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/generateEKeyFragment"
+        android:name="com.example.smartlock.ui.GenerateEKeyFragment"
+        android:label="Tạo Passcode"
+        tools:layout="@layout/fragment_generate_ekey">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/authorizedAdminFragment"
+        android:name="com.example.smartlock.ui.AuthorizedAdminFragment"
+        android:label="Quản trị được ủy quyền"
+        tools:layout="@layout/fragment_authorized_admin">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/recordsFragment"
+        android:name="com.example.smartlock.ui.RecordsFragment"
+        android:label="Nhật ký ra vào"
+        tools:layout="@layout/fragment_records">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.example.smartlock.ui.SettingsFragment"
+        android:label="Cài đặt"
+        tools:layout="@layout/fragment_settings">
+        <argument
+            android:name="doorId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/bleProvisionFragment"
+        android:name="com.example.smartlock.ui.BleProvisionFragment"
+        android:label="BleProvisionFragment"
+        tools:layout="@layout/fragment_ble_provision">
+    </fragment>
+
+</navigation>

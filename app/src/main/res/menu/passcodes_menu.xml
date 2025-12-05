@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/tools">
+
+    <item
+        android:id="@+id/action_generate_temp_passcode"
+        android:icon="@drawable/ic_key"
+        android:title="Tạo mã tạm"
+        app:showAsAction="ifRoom|withText" />
+
+    <item
+        android:id="@+id/action_sync_master_passcode"
+        android:icon="@drawable/ic_reload"
+        android:title="Đồng bộ"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_more"
+        android:title="Thêm"
+        app:showAsAction="never">
+
+        <menu>
+            <item
+                android:id="@+id/action_view_temp_passcodes"
+                android:title="Xem danh sách mã tạm"
+                android:icon="@drawable/ic_list" />
+
+            <item
+                android:id="@+id/action_clear_all_temp"
+                android:title="Xóa hết mã tạm"
+                android:icon="@drawable/ic_delete" />
+
+            <item
+                android:id="@+id/action_passcode_history"
+                android:title="Lịch sử thay đổi mã"
+                android:icon="@drawable/ic_history" />
+        </menu>
+    </item>
+
+</menu>

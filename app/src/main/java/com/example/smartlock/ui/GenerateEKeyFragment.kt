@@ -52,7 +52,6 @@ class GenerateEKeyFragment : Fragment() {
             findNavController().popBackStack()
         }
 
-        // Dropdown loại e-key
         val types = arrayOf("Mã một lần", "Có thời hạn", "Hiệu lực 24 giờ")
         binding.actvEkeyType.setAdapter(
             ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, types)
@@ -153,7 +152,6 @@ class GenerateEKeyFragment : Fragment() {
             else -> ""
         }
 
-        // Tạo Passcode
         val passcode = Passcode(
             code = code,
             doorId = args.doorId,
@@ -162,7 +160,7 @@ class GenerateEKeyFragment : Fragment() {
             status = "Active"
         )
 
-        binding.tvGeneratedCode.text = code.chunked(3).joinToString(" ")
+        binding.tvGeneratedCode.text = code
         binding.tvInfo.text = when (selectedType) {
             "one-time" -> "Loại: Mã dùng 1 lần\nSẽ tự xóa sau khi mở khóa"
             "timed-24h" -> "Loại: Hiệu lực 24 giờ\nTừ bây giờ đến 24h sau"

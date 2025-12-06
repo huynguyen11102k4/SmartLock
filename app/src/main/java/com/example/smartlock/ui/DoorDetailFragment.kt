@@ -91,5 +91,7 @@ class DoorDetailFragment : Fragment() {
             val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToSettingsFragment(args.doorId)
             findNavController().navigate(action)
         }
+
+        viewModel.requestSync(args.doorId)
     }
 }

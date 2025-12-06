@@ -8,15 +8,18 @@ import android.view.ViewGroup
 import android.widget.EditText
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartlock.MqttClientManager
+import com.example.smartlock.MqttService
 import com.example.smartlock.R
 import com.example.smartlock.databinding.FragmentIcCardBinding
 import com.example.smartlock.model.ICCard
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
+import org.json.JSONObject
 
 class ICCardFragment : Fragment() {
     private var _binding: FragmentIcCardBinding? = null
@@ -39,47 +42,87 @@ class ICCardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        adapter = ICCardAdapter{ catd ->
+
+        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
+
+        viewModel.subscribeToICCardList(args.doorId)
+        viewModel.requestICCardSync(args.doorId)
+
+        adapter = ICCardAdapter{ card ->
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Xóa thẻ IC?")
-                .setPositiveButton("Xóa") {_, _ ->
-                    viewModel.deleteICCard(args.doorId, catd.id)
+                .setMessage("Thẻ ${card.name} sẽ bị xóa khỏi danh sách")
+                .setPositiveButton("Xóa") { _, _ ->
+                    viewModel.deleteICCard(args.doorId, card.id)
                 }
                 .setNegativeButton("Hủy", null)
                 .show()
         }
-        binding.rvICCards.layoutManager = LinearLayoutManager(context)
-        binding.rvICCards.adapter = adapter
-        viewModel.syncICCards(args.doorId)
 
-        MqttClientManager.subscribe("${viewModel.doors.value.find { it.id == args.doorId }?.mqttTopicPrefix}/iccards/list") { publish ->
-            val jsonArray = JSONArray(String(publish.payloadAsBytes))
-            val cards = (0 until jsonArray.length()).map { i ->
-                val obj = jsonArray.getJSONObject(i)
-                ICCard(obj.getString("id"), obj.getString("name"), obj.getString("status"))
+        binding.rvICCards.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = this@ICCardFragment.adapter
+            setHasFixedSize(true)
+        }
+
+        viewLifecycleOwner.lifecycleScope.launchWhenCreated {
+            viewModel.getICCardsForDoor(args.doorId).collect { list ->
+                adapter.submitList(list.sortedBy { it.name })
+                binding.tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
             }
-            viewModel.icCards.value = cards
         }
 
         binding.fabAddICCard.setOnClickListener {
+            val modes = arrayOf("Nhập tay UID", "Quẹt thẻ 2 lần vào khóa")
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Thêm thẻ IC")
-                .setMessage("Đặt thẻ vào đầu đọc (demo: nhập UID)")
-                .setView(EditText(requireContext()).apply { hint = "UID" })
-                .setPositiveButton("Thêm") { dialog, _ ->
-                    val et = (dialog as AlertDialog).findViewById<EditText>(android.R.id.custom)!!
-                    val uid = et.text.toString()
-                    if (uid.isNotEmpty()) {
-                        val card = ICCard(uid, "Thẻ #$uid", "Active")
-                        viewModel.addICCard(args.doorId, card)
+                .setTitle("Chọn cách thêm thẻ IC")
+                .setItems(modes) { _, which ->
+                    when (which) {
+                        0 -> showManualEntryDialog()
+                        1 -> startSwipeMode()
                     }
                 }
                 .show()
         }
+    }
 
-        binding.toolbar.setNavigationOnClickListener {
-            findNavController().popBackStack()
+    private fun showManualEntryDialog() {
+        val input = EditText(requireContext()).apply {
+            hint = "Nhập UID thẻ (hex, ví dụ: 04A1B2C3D4E5F6)"
         }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Thêm thẻ IC thủ công")
+            .setMessage("Nhập UID của thẻ (có thể lấy từ log khi quẹt thử)")
+            .setView(input)
+            .setPositiveButton("Thêm") { _, _ ->
+                val uid = input.text.toString().trim().uppercase()
+                if (uid.isNotEmpty()) {
+                    val card = ICCard(
+                        id = uid,
+                        doorId = args.doorId,
+                        name = "Card #${uid.take(8)}",
+                        status = "Active"
+                    )
+                    viewModel.addICCard(args.doorId, card)
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
+    private fun startSwipeMode() {
+        val door = viewModel.doors.value.find { it.id == args.doorId } ?: return
+        val payload = JSONObject().apply {
+            put("action", "start_swipe_add")
+        }.toString()
+
+        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", payload)
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Chế độ thêm thẻ bằng quẹt")
+            .setMessage("Vui lòng quẹt thẻ mới 2 lần liên tiếp vào mặt khóa để xác nhận thêm.\n\nFirmware sẽ tự động thêm nếu 2 UID trùng nhau.")
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     override fun onDestroyView() {

@@ -291,11 +291,8 @@ class BleProvisionFragment : Fragment() {
 
                 viewLifecycleOwner.lifecycleScope.launch {
                     try {
-                        // ===== CRITICAL: Đợi lâu hơn để đảm bảo BLE stack sẵn sàng =====
-                        Log.d("BleProvision", "⏳ Waiting 1500ms before sending config...")
-                        delay(1500)  // Tăng từ 500ms lên 1500ms
+                        delay(1500)
 
-                        Log.d("BleProvision", "📤 Sending config now...")
                         val ok = ble.sendConfigAwaitAck(
                             json,
                             expect = "OK",
@@ -303,7 +300,6 @@ class BleProvisionFragment : Fragment() {
                         )
 
                         if (ok) {
-                            Log.d("BleProvision", "✅ Config successful!")
                             val deviceMac = safeDeviceAddress(device) ?: mac
                             val door = Door(
                                 id = deviceMac,
@@ -319,16 +315,13 @@ class BleProvisionFragment : Fragment() {
                             delay(1000)
                             findNavController().popBackStack()
                         } else {
-                            Log.e("BleProvision", "❌ Device did not respond with ACK")
                             ble.disconnect().enqueue()
                             toast("Thiết bị không phản hồi ACK - Thử lại!")
                         }
                     } catch (se: SecurityException) {
-                        Log.e("BleProvision", "❌ Security exception: ${se.message}")
                         ble.disconnect().enqueue()
                         toast("Thiếu quyền BLE: ${se.message}")
                     } catch (e: Exception) {
-                        Log.e("BleProvision", "❌ Error: ${e.message}")
                         ble.disconnect().enqueue()
                         toast("Gửi cấu hình lỗi: ${e.message}")
                     }

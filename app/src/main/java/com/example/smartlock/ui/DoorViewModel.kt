@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartlock.MqttClientManager
+import com.example.smartlock.MqttService
 import com.example.smartlock.model.Door
 import com.example.smartlock.model.ICCard
 import com.example.smartlock.model.Passcode
@@ -28,7 +29,7 @@ class DoorViewModel(context: Context) : ViewModel() {
     private val passcodeRepo = PasscodeRepository(context)
     private val icCardRepo = ICCardRepository(context)
 
-    val doors: StateFlow<List<com.example.smartlock.model.Door>> = doorRepo.allDoors.stateIn(
+    val doors: StateFlow<List<Door>> = doorRepo.allDoors.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
@@ -69,7 +70,7 @@ class DoorViewModel(context: Context) : ViewModel() {
     fun subscribeToPasscodeList(doorId: String) {
         val door = doors.value.find { it.id == doorId } ?: return
 
-        MqttClientManager.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
+        (MqttClientManager as? MqttService)?.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
             try {
                 val jsonArray = JSONArray(String(publish.payloadAsBytes))
                 val tempPasscodes = mutableListOf<Passcode>()
@@ -136,34 +137,70 @@ class DoorViewModel(context: Context) : ViewModel() {
     fun getEKeysForDoor(doorId: String): Flow<List<Passcode>> =
         passcodeRepo.getPasscodesForDoor(doorId)
 
-    fun syncICCards(doorId: String) {
+    fun subscribeToICCardList(doorId: String){
         val door = doors.value.find { it.id == doorId } ?: return
-        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards/request", "{}")
+        (MqttClientManager as? MqttService)?.subscribe("${door.mqttTopicPrefix}/iccards/list") { publish ->
+            try {
+                val jsonArray = JSONArray(String(publish.payloadAsBytes))
+                val cards = mutableListOf<ICCard>()
+
+                for(i in 0 until jsonArray.length()){
+                    val obj = jsonArray.getJSONObject(i)
+                    cards.add(
+                        ICCard(
+                            id = obj.getString("id"),
+                            doorId = doorId,
+                            name = obj.optString("name", "Thẻ #${obj.getString("id").takeLast(8)}"),
+                            status = obj.optString("status", "Active")
+                        )
+                    )
+                }
+
+                viewModelScope.launch {
+                    icCardRepo.deleteAllForDoor(doorId)
+                    cards.forEach { icCardRepo.insert(it) }
+                }
+            } catch (e: Exception){
+                Log.e("MQTT", "Parse IC card list error", e)
+            }
+        }
     }
 
-    fun icCardsForDoor(doorId: String): StateFlow<List<ICCard>> =
-        icCardRepo.getCardsForDoor(doorId).stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    fun getICCardsForDoor(doorId: String): Flow<List<ICCard>> =
+        icCardRepo.getCardsForDoor(doorId)
 
     fun addICCard(doorId: String, card: ICCard) {
         val door = doors.value.find { it.id == doorId } ?: return
-        val json = JSONObject().apply {
+        val payload = JSONObject().apply {
             put("action", "add")
             put("id", card.id)
             put("name", card.name)
         }.toString()
-        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", json)
-        icCards.update { it + card }
+
+        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", payload)
+
+        viewModelScope.launch {
+            icCardRepo.insert(card.copy(doorId = doorId))
+        }
     }
 
-    fun deleteICCard(doorId: String, id: String) {
+    fun deleteICCard(doorId: String, cardId: String) {
         val door = doors.value.find { it.id == doorId } ?: return
-        val json = JSONObject().put("action", "delete").put("id", id).toString()
-        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", json)
-        icCards.update { it.filter { c -> c.id != id } }
+        val payload = JSONObject().apply {
+            put("action", "delete")
+            put("id", cardId)
+        }.toString()
+
+        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", payload)
+
+        viewModelScope.launch {
+            icCardRepo.delete(cardId, doorId)
+        }
+    }
+
+    fun requestICCardSync(doorId: String){
+        val door = doors.value.find { it.id == doorId } ?: return
+        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards/request", "{}")
     }
 
     fun requestSync(doorId: String) = viewModelScope.launch {

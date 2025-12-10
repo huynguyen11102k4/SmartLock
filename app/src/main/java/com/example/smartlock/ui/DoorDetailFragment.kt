@@ -92,6 +92,6 @@ class DoorDetailFragment : Fragment() {
             findNavController().navigate(action)
         }
 
-        viewModel.requestSync(args.doorId)
+//        viewModel.requestSync(args.doorId)
     }
 }

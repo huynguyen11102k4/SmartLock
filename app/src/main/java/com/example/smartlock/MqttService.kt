@@ -61,7 +61,7 @@ class MqttService : Service() {
             Log.d("MqttService", "✓ startForeground() called successfully")
 
             acquireWakeLock()
-            Log.d("MqttService", "✓ WakeLock acquired")
+            Log.d("MqttService", " WakeLock acquired")
 
             isRunning = true
             Log.d("MqttService", "isRunning set to true")

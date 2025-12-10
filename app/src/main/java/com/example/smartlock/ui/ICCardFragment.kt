@@ -46,7 +46,8 @@ class ICCardFragment : Fragment() {
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         viewModel.subscribeToICCardList(args.doorId)
-        viewModel.requestICCardSync(args.doorId)
+//        viewModel.requestICCardSync(args.doorId)
+
 
         adapter = ICCardAdapter{ card ->
             MaterialAlertDialogBuilder(requireContext())

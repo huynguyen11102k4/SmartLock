@@ -90,6 +90,7 @@ class DoorListFragment : Fragment() {
             findNavController().popBackStack()
         }
 
+//        viewModel.reSubscribeAll()
     }
 
     private fun showAddDoorDialog() {

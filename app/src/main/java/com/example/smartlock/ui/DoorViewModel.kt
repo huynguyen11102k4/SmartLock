@@ -70,7 +70,7 @@ class DoorViewModel(context: Context) : ViewModel() {
     fun subscribeToPasscodeList(doorId: String) {
         val door = doors.value.find { it.id == doorId } ?: return
 
-        (MqttClientManager as? MqttService)?.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
+        MqttClientManager.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
             try {
                 val jsonArray = JSONArray(String(publish.payloadAsBytes))
                 val tempPasscodes = mutableListOf<Passcode>()
@@ -139,7 +139,7 @@ class DoorViewModel(context: Context) : ViewModel() {
 
     fun subscribeToICCardList(doorId: String){
         val door = doors.value.find { it.id == doorId } ?: return
-        (MqttClientManager as? MqttService)?.subscribe("${door.mqttTopicPrefix}/iccards/list") { publish ->
+        MqttClientManager.subscribe("${door.mqttTopicPrefix}/iccards/list") { publish ->
             try {
                 val jsonArray = JSONArray(String(publish.payloadAsBytes))
                 val cards = mutableListOf<ICCard>()
@@ -154,6 +154,7 @@ class DoorViewModel(context: Context) : ViewModel() {
                             status = obj.optString("status", "Active")
                         )
                     )
+                    Log.d("MQTT", "IC Card loaded: ${obj.getString("id")}")
                 }
 
                 viewModelScope.launch {
@@ -207,6 +208,18 @@ class DoorViewModel(context: Context) : ViewModel() {
         val door = doors.value.find { it.id == doorId } ?: return@launch
         MqttClientManager.publish("${door.mqttTopicPrefix}/passcodes/request", "{}")
         MqttClientManager.publish("${door.mqttTopicPrefix}/iccards/request", "{}")
+    }
+
+    fun reSubscribeAll() {
+        viewModelScope.launch {
+            doorRepo.allDoors.collect { doors ->
+                doors.forEach { door ->
+                    subscribeToPasscodeList(door.id)
+                    subscribeToICCardList(door.id)
+                    requestSync(door.id)
+                }
+            }
+        }
     }
 
     fun updateMasterPasscodeFromMqtt(code: String) {

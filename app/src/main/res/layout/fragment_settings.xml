@@ -12,7 +12,9 @@
         android:layout_height="wrap_content"
         android:background="#2196F3"
         android:title="Cài đặt"
-        android:titleTextColor="#FFFFFF" />
+        android:titleTextColor="#FFFFFF"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:navigationIconTint="#FFFFFF"/>
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilDoorName"

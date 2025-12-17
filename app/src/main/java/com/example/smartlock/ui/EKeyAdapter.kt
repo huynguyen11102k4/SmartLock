@@ -1,16 +1,20 @@
 package com.example.smartlock.ui
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.ViewGroup
+import android.view.animation.OvershootInterpolator
 import android.widget.Toast
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.smartlock.databinding.ItemEkeyBinding
 import com.example.smartlock.model.Passcode
+import org.json.JSONObject
 
 class EKeyAdapter(
     private val onDeleteClick: (Passcode) -> Unit
@@ -20,12 +24,28 @@ class EKeyAdapter(
         val binding: ItemEkeyBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
+        @SuppressLint("ClickableViewAccessibility")
         fun bind(ekey: Passcode, onDeleteClick: (Passcode) -> Unit) = with(binding) {
             tvCode.text = ekey.code.chunked(3).joinToString(" ")
 
             tvType.text = ekey.type
 
-            tvValidity.text = "Hiệu lực: ${ekey.validity}"
+            tvValidity.text = when (ekey.type) {
+                "one-time" -> "Hiệu lực: Một lần"
+
+                "timed" -> {
+                    try {
+                        val json = JSONObject(ekey.validity)
+                        val start = json.getString("start")
+                        val end = json.getString("end")
+
+                        "Hiệu lực:\nTừ: $start\nĐến: $end"
+                    } catch (e: Exception) {
+                        "Hiệu lực: ${ekey.validity}"
+                    }
+                }
+                else -> "Hiệu lực: ${ekey.validity}"
+            }
 
             btnCopy.setOnClickListener {
                 val context = itemView.context
@@ -38,6 +58,19 @@ class EKeyAdapter(
 
             btnDelete.setOnClickListener {
                 onDeleteClick(ekey)
+            }
+
+            root.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(100).start()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(200)
+                            .setInterpolator(OvershootInterpolator()).start()
+                    }
+                }
+                false
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.example.smartlock.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -58,8 +59,12 @@ class EKeysFragment : Fragment() {
             viewModel.getEKeysForDoor(args.doorId).collect { list ->
                 adapter.submitList(list.sortedByDescending { it.code })
                 binding.tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                Log.d("EKeysFragment", "Updated UI with ${list.size} ekeys (auto-removed expired/one-time)")
             }
         }
+
+        viewModel.requestPasscodeSync(args.doorId)
+        viewModel.subscribeToPasscodeList(args.doorId)
     }
 
     override fun onDestroyView() {

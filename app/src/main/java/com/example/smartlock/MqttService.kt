@@ -25,12 +25,18 @@ class MqttService : Service() {
         var isRunning = false
 
         private val subscribedTopics = mutableMapOf<String, Consumer<Mqtt5Publish>>()
+
+        private var instance: MqttService? = null
+        fun getInstance(): MqttService? {
+            return instance
+        }
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Log.d("MqttService", "═══════════════════════════════════")
         Log.d("MqttService", "onCreate() called - Service STARTING")
         Log.d("MqttService", "Android Version: ${Build.VERSION.SDK_INT}")
@@ -137,9 +143,9 @@ class MqttService : Service() {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG).apply {
                 acquire(10 * 60 * 1000L)
             }
-            Log.d("MqttService", "✓ WakeLock acquired successfully")
+            Log.d("MqttService", "WakeLock acquired successfully")
         } catch (e: Exception) {
-            Log.e("MqttService", "✗ Failed to acquire WakeLock: ${e.message}", e)
+            Log.e("MqttService", "Failed to acquire WakeLock: ${e.message}", e)
         }
     }
 
@@ -176,6 +182,7 @@ class MqttService : Service() {
         isRunning = false
         wakeLock?.release()
         MqttClientManager.disconnect()
+        instance = null
     }
 
     override fun onBind(intent: Intent?): IBinder? {

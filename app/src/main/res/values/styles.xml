@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style name="CustomOutlinedTextInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+    <item name="boxStrokeColor">#C4A26A</item>
+    <item name="boxStrokeWidth">1.5dp</item>
+    <item name="boxStrokeWidthFocused">2dp</item>
+
+    <item name="boxBackgroundColor">@android:color/transparent</item>
+
+    <item name="hintTextColor">#C4A26A</item>
+</style>

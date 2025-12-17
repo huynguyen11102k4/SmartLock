@@ -11,5 +11,6 @@ data class Door(
     val battery: Int = 100,
     val macAddress: String? = null,
     val mqttTopicPrefix: String,
-    val masterPasscode: String? = null
+    val masterPasscode: String? = null,
+    val currentState: String = "locked"
 )

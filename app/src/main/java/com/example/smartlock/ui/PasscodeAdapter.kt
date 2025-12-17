@@ -1,6 +1,9 @@
 package com.example.smartlock.ui
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.animation.OvershootInterpolator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -21,12 +24,25 @@ class PasscodeAdapter(private val onDelete: (Passcode) -> Unit ): ListAdapter<Pa
         }
     }
     inner class PasscodeViewHolder(private val binding: ItemPasscodeBinding): RecyclerView.ViewHolder(binding.root) {
+        @SuppressLint("ClickableViewAccessibility")
         fun bind(passcode: Passcode){
             binding.tvCode.text = "Mã: ${passcode.code}"
             binding.tvValidity.text = "Hiệu lực: ${passcode.validity}"
             binding.root.setOnLongClickListener {
                 onDelete(passcode)
                 true
+            }
+            binding.root.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(100).start()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(200)
+                            .setInterpolator(OvershootInterpolator()).start()
+                    }
+                }
+                false
             }
         }
     }

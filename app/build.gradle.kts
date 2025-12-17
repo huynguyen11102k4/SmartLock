@@ -97,4 +97,14 @@ dependencies {
     implementation("com.hivemq:hivemq-mqtt-client:1.3.9")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
+    // MockWebServer (để fake API)
+    debugImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
+
+    implementation("com.facebook.shimmer:shimmer:0.5.0")
 }

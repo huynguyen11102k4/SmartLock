@@ -9,9 +9,11 @@ import com.example.smartlock.MqttService
 import com.example.smartlock.model.Door
 import com.example.smartlock.model.ICCard
 import com.example.smartlock.model.Passcode
+import com.example.smartlock.model.Record
 import com.example.smartlock.repository.DoorRepository
 import com.example.smartlock.repository.ICCardRepository
 import com.example.smartlock.repository.PasscodeRepository
+import com.example.smartlock.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,12 +24,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Date
+import java.util.UUID
 
 class DoorViewModel(context: Context) : ViewModel() {
 
     private val doorRepo = DoorRepository(context)
     private val passcodeRepo = PasscodeRepository(context)
     private val icCardRepo = ICCardRepository(context)
+    private val recordRepo = RecordRepository(context)
 
     val doors: StateFlow<List<Door>> = doorRepo.allDoors.stateIn(
         scope = viewModelScope,
@@ -38,6 +43,12 @@ class DoorViewModel(context: Context) : ViewModel() {
     private val _masterPasscode = MutableStateFlow<String?>(null)
     val masterPasscode: StateFlow<String?> = _masterPasscode
     val icCards: MutableStateFlow<List<ICCard>> = MutableStateFlow(emptyList())
+    val records: MutableStateFlow<List<Record>> = MutableStateFlow(emptyList())
+
+    private val mqttService: MqttService? = MqttService.getInstance()
+
+    private val _currentStates = MutableStateFlow<Map<String, String>>(emptyMap())
+    val currentStates: StateFlow<Map<String, String>> = _currentStates
 
     fun getDoorById(doorId: String): Flow<Door?> =
         doorRepo.allDoors
@@ -70,41 +81,58 @@ class DoorViewModel(context: Context) : ViewModel() {
     fun subscribeToPasscodeList(doorId: String) {
         val door = doors.value.find { it.id == doorId } ?: return
 
-        MqttClientManager.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
-            try {
-                val jsonArray = JSONArray(String(publish.payloadAsBytes))
-                val tempPasscodes = mutableListOf<Passcode>()
+        if (mqttService != null && MqttService.isRunning) {
+            mqttService.subscribe("${door.mqttTopicPrefix}/passcodes/list") { publish ->
+                try {
+                    val payload = String(publish.payloadAsBytes)
+                    Log.d("MQTT_PASSCODE", "Passcode list received from ${door.id}: $payload")
 
-                for (i in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(i)
-                    val code = obj.getString("code")
-                    val type = obj.getString("type")
-                    val validity = obj.optString("validity", "")
+                    val jsonArray = JSONArray(payload)
+                    val tempPasscodes = mutableListOf<Passcode>()
 
-                    if (type == "permanent") {
-                        viewModelScope.launch {
-                            doorRepo.updateMasterPasscode(doorId, code)
+                    Log.d("MQTT_PASSCODE", "Attempting to parse total ${jsonArray.length()} items.")
+
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val code = obj.getString("code")
+                        val type = obj.getString("type")
+                        val validity = obj.optString("validity", "")
+
+                        if (type == "permanent") {
+                            Log.d("MQTT_PASSCODE", "Found permanent passcode (Master): $code")
+                            viewModelScope.launch {
+                                doorRepo.updateMasterPasscode(doorId, code)
+                            }
+                        } else {
+                            val passcode = Passcode(
+                                code = code,
+                                doorId = doorId,
+                                type = type,
+                                validity = validity,
+                                status = "Active"
+                            )
+                            tempPasscodes.add(passcode)
+                            Log.d("MQTT_PASSCODE", "Found EKey: $code (Type: $type). Total temp found so far: ${tempPasscodes.size}") // Log chi tiết
                         }
-                    } else {
-                        val passcode = Passcode(
-                            code = code,
-                            doorId = doorId,
-                            type = type,
-                            validity = validity,
-                            status = "Active"
-                        )
-                        tempPasscodes.add(passcode)
                     }
-                }
 
-                viewModelScope.launch {
-                    passcodeRepo.deleteAllForDoor(doorId)
-                    tempPasscodes.forEach { passcodeRepo.insert(it) }
-                }
+                    Log.d("MQTT_PASSCODE", "Finished parsing. Found ${tempPasscodes.size} EKeys to insert.")
 
-            } catch (e: Exception) {
-                Log.e("MQTT", "Parse passcode list error", e)
+                    viewModelScope.launch {
+                        Log.d("MQTT_PASSCODE", "Starting DB sync for door $doorId.")
+                        passcodeRepo.deleteAllForDoor(doorId)
+                        Log.d("MQTT_PASSCODE", "Deleted all existing EKeys for $doorId.")
+
+                        tempPasscodes.forEach { passcodeRepo.insert(it) }
+                        Log.d("MQTT_PASSCODE", "Inserted ${tempPasscodes.size} EKeys from MQTT.")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("MQTT_PASSCODE", "Critical JSON parsing error in subscribeToPasscodeList: ${e.message}", e)
+                }
             }
+        } else {
+            Log.w("MQTT", "MqttService not running, cannot subscribe to passcodes/list")
         }
     }
 
@@ -120,6 +148,7 @@ class DoorViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             passcodeRepo.insert(passcode)
         }
+//        requestPasscodeSync(doorId)
     }
 
     fun deleteEKey(code: String, doorId: String) {
@@ -137,33 +166,38 @@ class DoorViewModel(context: Context) : ViewModel() {
     fun getEKeysForDoor(doorId: String): Flow<List<Passcode>> =
         passcodeRepo.getPasscodesForDoor(doorId)
 
-    fun subscribeToICCardList(doorId: String){
+    fun requestPasscodeSync(doorId: String){
         val door = doors.value.find { it.id == doorId } ?: return
-        MqttClientManager.subscribe("${door.mqttTopicPrefix}/iccards/list") { publish ->
-            try {
-                val jsonArray = JSONArray(String(publish.payloadAsBytes))
-                val cards = mutableListOf<ICCard>()
+        MqttClientManager.publish("${door.mqttTopicPrefix}/passcodes/request", "{}")
+    }
 
-                for(i in 0 until jsonArray.length()){
-                    val obj = jsonArray.getJSONObject(i)
-                    cards.add(
-                        ICCard(
-                            id = obj.getString("id"),
-                            doorId = doorId,
-                            name = obj.optString("name", "Thẻ #${obj.getString("id").takeLast(8)}"),
-                            status = obj.optString("status", "Active")
-                        )
-                    )
-                    Log.d("MQTT", "IC Card loaded: ${obj.getString("id")}")
-                }
+    fun subscribeToICCardList(doorId: String) {
+        val door = doors.value.find { it.id == doorId } ?: return
 
-                viewModelScope.launch {
-                    icCardRepo.deleteAllForDoor(doorId)
-                    cards.forEach { icCardRepo.insert(it) }
+        if (mqttService != null && MqttService.isRunning) {
+            mqttService.subscribe("${door.mqttTopicPrefix}/iccards/list") { publish ->
+                try {
+                    val jsonArray = JSONArray(String(publish.payloadAsBytes))
+                    val cards = mutableListOf<ICCard>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val id = obj.getString("id")
+                        val name = obj.optString("name", "Card #$id")
+
+                        cards.add(ICCard(id = id, doorId = doorId, name = name, status = "Active"))
+                    }
+
+                    viewModelScope.launch {
+                        icCardRepo.deleteAllForDoor(doorId)
+                        cards.forEach { icCardRepo.insert(it) }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MQTT", "Parse ICCard list error", e)
                 }
-            } catch (e: Exception){
-                Log.e("MQTT", "Parse IC card list error", e)
             }
+        } else {
+            Log.w("MQTT", "MqttService not running, cannot subscribe to iccards/list")
         }
     }
 
@@ -204,6 +238,92 @@ class DoorViewModel(context: Context) : ViewModel() {
         MqttClientManager.publish("${door.mqttTopicPrefix}/iccards/request", "{}")
     }
 
+    fun getRecordsForDoor(doorId: String): Flow<List<Record>> =
+        recordRepo.getRecordsForDoor(doorId)
+
+    fun subscribeToRecords(doorId: String) {
+        val door = doors.value.find { it.id == doorId } ?: return
+
+        if (mqttService != null && MqttService.isRunning) {
+            mqttService.subscribe("${door.mqttTopicPrefix}/log") { message ->
+                try {
+                    val payload = String(message.payloadAsBytes)
+                    Log.d("MQTT_RECORDS", "Log message received: $payload")
+                    val json = JSONObject(payload)
+                    val event = json.optString("event", "unknown_event")
+                    val method = json.optString("method", "unknown")
+                    val detail = json.optString("detail", "")
+
+                    val inferredState = when {
+                        event == "unlock" || method.contains("unlock") -> "unlocked"
+                        event == "lock" || event == "wrong_pin" || event == "locked" -> "locked"
+                        else -> "locked"
+                    }
+
+                    val record = Record(
+                        id = UUID.randomUUID().toString(),
+                        doorId = doorId,
+                        timestamp = Date(),
+                        event = event,
+                        method = method,
+                        detail = detail,
+                        state = inferredState,
+                        sourceMqttMessage = payload
+                    )
+                    viewModelScope.launch {
+                        recordRepo.insert(record)
+                    }
+                    Log.d("MQTT", "Record log received: $payload" )
+                } catch (e: Exception) {
+                    Log.e("MQTT", "Parse record log error", e)
+                }
+            }
+        } else {
+            Log.w("MQTT", "MqttService not running, cannot subscribe to log")
+        }
+    }
+
+    fun subscribeToState(doorId: String) {
+        val door = doors.value.find { it.id == doorId } ?: return
+
+        if (mqttService != null && MqttService.isRunning) {
+            mqttService.subscribe("${door.mqttTopicPrefix}/state") { message ->
+                try {
+                    val payload = String(message.payloadAsBytes)
+                    Log.d("MQTT_RECORDS", "Log message received: $payload")
+                    val json = JSONObject(payload)
+                    val state = json.optString("state", "locked")
+                    val reason = json.optString("reason", "")
+
+                    _currentStates.update { it + (doorId to state) }
+
+                    viewModelScope.launch {
+                        val currentDoor = doorRepo.getDoorById(doorId)
+                        if (currentDoor != null) {
+                            doorRepo.update(currentDoor.copy(currentState = state))
+                        }
+
+                        val record = Record(
+                            id = UUID.randomUUID().toString(),
+                            doorId = doorId,
+                            timestamp = Date(),
+                            event = "state_change",
+                            method = "system",
+                            detail = "State: $state (reason: $reason)",
+                            state = state,
+                            sourceMqttMessage = payload
+                        )
+                        recordRepo.insert(record)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MQTT", "Parse state error", e)
+                }
+            }
+        } else {
+            Log.w("MQTT", "MqttService not running, cannot subscribe to state")
+        }
+    }
+
     fun requestSync(doorId: String) = viewModelScope.launch {
         val door = doors.value.find { it.id == doorId } ?: return@launch
         MqttClientManager.publish("${door.mqttTopicPrefix}/passcodes/request", "{}")
@@ -216,7 +336,9 @@ class DoorViewModel(context: Context) : ViewModel() {
                 doors.forEach { door ->
                     subscribeToPasscodeList(door.id)
                     subscribeToICCardList(door.id)
-                    requestSync(door.id)
+                    subscribeToRecords(door.id)
+                    subscribeToState(door.id)
+//                    requestSync(door.id)
                 }
             }
         }

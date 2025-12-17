@@ -296,7 +296,7 @@ class BleProvisionFragment : Fragment() {
                         val ok = ble.sendConfigAwaitAck(
                             json,
                             expect = "OK",
-                            timeoutMs = 15_000  // Tăng timeout lên 15s
+                            timeoutMs = 15_000
                         )
 
                         if (ok) {
@@ -323,7 +323,7 @@ class BleProvisionFragment : Fragment() {
                         toast("Thiếu quyền BLE: ${se.message}")
                     } catch (e: Exception) {
                         ble.disconnect().enqueue()
-                        toast("Gửi cấu hình lỗi: ${e.message}")
+//                        toast("Gửi cấu hình lỗi: ${e.message}")
                     }
                 }
             }
@@ -334,7 +334,7 @@ class BleProvisionFragment : Fragment() {
 
             override fun onDeviceDisconnecting(device: BluetoothDevice) {}
             override fun onDeviceDisconnected(d: BluetoothDevice, reason: Int) {
-                toast("Đã ngắt kết nối")
+//                toast("Đã ngắt kết nối")
             }
         })
 

@@ -2,59 +2,84 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="28dp"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="#1F1F1F"> <TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Kết nối Wi-Fi cho khóa"
+    android:textColor="#FFFFFF"
+    android:textSize="22sp"
+    android:textStyle="bold"
+    android:layout_marginBottom="24dp" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilSsid"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Wi-Fi SSID">
+        android:hint="Tên Wi-Fi (SSID)"
+        android:textColorHint="#80FFFFFF"
+        app:hintTextColor="#C4A26A"
+        app:boxStrokeColor="#C4A26A"
+        app:startIconDrawable="@drawable/ic_wifi"
+        app:startIconTint="#C4A26A">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etSsid"
-            android:inputType="text"
-            android:maxLines="1"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:inputType="text" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilPass"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
         android:hint="Mật khẩu"
-        app:endIconMode="password_toggle">
+        android:textColorHint="#80FFFFFF"
+        app:hintTextColor="#C4A26A"
+        app:boxStrokeColor="#C4A26A"
+        app:startIconDrawable="@drawable/ic_lock"
+        app:startIconTint="#C4A26A"
+        app:endIconMode="password_toggle"
+        app:endIconTint="#80FFFFFF">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etPass"
-            android:inputType="textPassword"
-            android:maxLines="1"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:inputType="textPassword" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <LinearLayout
-        android:layout_marginTop="12dp"
-        android:gravity="end"
-        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:layout_marginTop="32dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCancel"
-            style="?attr/materialButtonOutlinedStyle"
-            android:text="Hủy"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:text="Hủy"
+            android:textColor="#80FFFFFF" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnOk"
-            android:layout_marginStart="12dp"
-            android:text="Tiếp tục"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:text="Tiếp tục"
+            android:backgroundTint="#C4A26A"
+            android:textColor="#121212"
+            app:cornerRadius="12dp"
+            android:layout_marginStart="16dp" />
     </LinearLayout>
-
 </LinearLayout>

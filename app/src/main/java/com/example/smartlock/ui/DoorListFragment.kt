@@ -1,5 +1,6 @@
 package com.example.smartlock.ui
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.os.Bundle
 import android.util.Log
@@ -15,8 +16,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.smartlock.R
 import com.example.smartlock.model.Door
 import com.example.smartlock.databinding.DoorListFragmentBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
@@ -77,7 +80,13 @@ class DoorListFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.doors.collect { list ->
-                    adapter.submitList(list)
+                    if (list.isNotEmpty()) {
+                        binding.shimmerViewContainer.stopShimmer()
+                        binding.shimmerViewContainer.visibility = View.GONE
+
+                        binding.rvDoors.visibility = View.VISIBLE
+                        adapter.submitList(list)
+                    }
                 }
             }
         }
@@ -86,24 +95,32 @@ class DoorListFragment : Fragment() {
             showAddDoorDialog()
         }
 
-        binding.toolbar.setNavigationOnClickListener {
-            findNavController().popBackStack()
-        }
-
 //        viewModel.reSubscribeAll()
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private fun showAddDoorDialog() {
-        val options = arrayOf("Quét mã QR", "Kết nối Bluetooth")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Thêm khóa mới")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> startQrScanner()
-                    1 -> startBleScan()
-                }
-            }
-            .show()
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_door, null)
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialogView.background = resources.getDrawable(R.drawable.bg_dialog_dark, null)
+
+        dialogView.findViewById<View>(R.id.btnQrScan).setOnClickListener {
+            dialog.dismiss()
+            startQrScanner()
+        }
+
+        dialogView.findViewById<View>(R.id.btnBleScan).setOnClickListener {
+            dialog.dismiss()
+            startBleScan()
+        }
+
+        dialog.show()
     }
 
     private fun startQrScanner() {

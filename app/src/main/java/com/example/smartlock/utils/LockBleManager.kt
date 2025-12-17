@@ -129,7 +129,7 @@ class LockBleManager(ctx: Context) : BleManager(ctx) {
             .enqueue()
 
         return try {
-            Log.d("LockBleManager", "⏳ Optionally waiting for ACK (timeout: ${timeoutMs}ms)...")
+            Log.d("LockBleManager", "Optionally waiting for ACK (timeout: ${timeoutMs}ms)...")
 
             val ack = withTimeout(timeoutMs) {
                 ackDeferred?.await()

@@ -7,15 +7,14 @@ import android.view.animation.OvershootInterpolator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import androidx.viewbinding.ViewBinding
 import com.example.smartlock.databinding.ItemPasscodeBinding
-import com.example.smartlock.model.Passcode
+import com.example.smartlock.model.entity.Passcode
 
 class PasscodeAdapter(private val onDelete: (Passcode) -> Unit ): ListAdapter<Passcode, PasscodeAdapter.PasscodeViewHolder>(DIFF) {
     companion object {
         val DIFF = object : DiffUtil.ItemCallback<Passcode>() {
             override fun areItemsTheSame(oldItem: Passcode, newItem: Passcode): Boolean {
-                return oldItem.code == newItem.code && oldItem.doorId == newItem.doorId
+                return oldItem.code == newItem.code
             }
 
             override fun areContentsTheSame(oldItem: Passcode, newItem: Passcode): Boolean {
@@ -27,7 +26,7 @@ class PasscodeAdapter(private val onDelete: (Passcode) -> Unit ): ListAdapter<Pa
         @SuppressLint("ClickableViewAccessibility")
         fun bind(passcode: Passcode){
             binding.tvCode.text = "Mã: ${passcode.code}"
-            binding.tvValidity.text = "Hiệu lực: ${passcode.validity}"
+//            binding.tvValidity.text = "Hiệu lực: ${passcode.validity}"
             binding.root.setOnLongClickListener {
                 onDelete(passcode)
                 true

@@ -6,4 +6,26 @@
     </style>
 
     <style name="Theme.SmartLock" parent="Base.Theme.SmartLock" />
+
+    <style name="CustomAlertDialogTheme" parent="Theme.Material3.Dark.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.7</item>
+    </style>
+
+    <style name="ShapeAppearance.Circle" parent="">
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="CustomAlertDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">#2A2A2A</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorPrimary">#C4A26A</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MediumComponent.Rounded</item>
+    </style>
+
+    <style name="ShapeAppearance.MediumComponent.Rounded" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">12dp</item>
+    </style>
 </resources>

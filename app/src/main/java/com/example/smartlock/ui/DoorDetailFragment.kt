@@ -1,13 +1,16 @@
 package com.example.smartlock.ui
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
+import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -15,30 +18,24 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.example.smartlock.MqttClientManager
 import com.example.smartlock.R
 import com.example.smartlock.databinding.DoorDetailFragmentBinding
-import com.example.smartlock.model.Door
+import com.example.smartlock.model.entity.Door
+import com.example.smartlock.viewmodel.DoorViewModel
+import com.example.smartlock.viewmodel.DoorUiState
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import kotlinx.coroutines.delay
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-// Thêm imports cần thiết cho Animation
-import android.graphics.Color
-import android.os.Build
-import android.view.animation.DecelerateInterpolator
-import androidx.annotation.RequiresApi
-
-
+@AndroidEntryPoint
 class DoorDetailFragment : Fragment() {
     private var _binding: DoorDetailFragmentBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: DoorViewModel by viewModels {
-        DoorViewModelFactory(requireContext().applicationContext)
-    }
-
+    private val viewModel: DoorViewModel by viewModels()
     private val args: DoorDetailFragmentArgs by navArgs()
 
     private var isLocked: Boolean = true
@@ -46,66 +43,164 @@ class DoorDetailFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         _binding = DoorDetailFragmentBinding.inflate(inflater, container, false)
-        val view = binding.root
-        return view
+        return binding.root
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    @SuppressLint("ClickableViewAccessibility")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val doorId = args.doorId
+        viewModel.setCurrentDoor(doorId)
+
+        viewModel.refreshDoorDetails(doorId)
+
+        setupAnimations()
+        observeDoorData()
+        setupSliderLogic()
+        setupNavigationClickListeners()
+
+        binding.btnBackIcon.setOnClickListener {
+            findNavController().popBackStack()
+        }
+    }
+
+    private fun setupAnimations() {
+        binding.cardStatus.apply {
+            translationY = 100f
+            alpha = 0f
+            animate().translationY(0f).alpha(1f).setDuration(400).start()
+        }
+        view?.post { animateToLocked() }
+    }
+
+    private fun observeDoorData() {
         viewLifecycleOwner.lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                binding.cardStatus.apply {
-                    translationY = 100f
-                    alpha = 0f
-                    animate().translationY(0f).alpha(1f).setDuration(400).start()
-                }
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.currentDoor.collect { door ->
+                    door?.let {
+                        binding.tvDoorName.text = it.name
+                        binding.tvBattery.text = "${it.battery}%"
 
-                viewModel.getDoorById(args.doorId).collect { door ->
-                    if (door == null) {
-                        findNavController().popBackStack()
-                        return@collect
-                    }
-                    if (door.id == args.doorId) {
-                        viewModel.subscribeToState(args.doorId)
-                        viewModel.subscribeToRecords(args.doorId)
-                        binding.tvDoorName.text = door.name ?: "Door Detail"
-                    }
-                    binding.tvBattery.text = "${door.battery}%"
-                }
+                        when (it.state) {
+                            "Lock" -> if (!isLocked) animateToLocked()
+                            "Unlock" -> if (isLocked) animateToUnlocked()
+                            "Unknown" -> {
+                                animateToLocked()
+                            }
+                        }
 
-                viewModel.currentStates.collect { states ->
-                    val state = states[args.doorId] ?: "locked"
-                    if (state == "unlocked" && isLocked) {
-                        animateToUnlocked()
-                    } else if (state == "locked" && !isLocked) {
-                        animateToLocked()
+                        applyPermissions(it)
                     }
                 }
             }
         }
 
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.currentDoor.collect { door ->
+                    door?.let {
+                        binding.tvDoorName.text = it.name
+                        binding.tvBattery.text = "${it.battery}%"
+                        applyPermissions(it)
+                    }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    when (state) {
+                        is DoorUiState.CommandSuccess -> {
+                            Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                            viewModel.resetState()
+                        }
+                        is DoorUiState.Error -> {
+                            Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                            // Nếu lỗi, có thể cần reset lại trạng thái Slider về đúng thực tế
+                            viewModel.resetState()
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyPermissions(door: Door) {
+        val p = door.permission
+        val currentTime = System.currentTimeMillis()
+
+        if (p == 3) {
+            val parseIsoToLong = { isoString: String? ->
+                try {
+                    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                    sdf.parse(isoString ?: "")?.time
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            val validFromLong = parseIsoToLong(door.validFrom)
+            val validToLong = parseIsoToLong(door.validTo)
+
+            val isExpired = validToLong != null && currentTime > validToLong
+            val isNotStarted = validFromLong != null && currentTime < validFromLong
+
+            if (isExpired || isNotStarted) {
+                disableControlSlider("Truy cập hết hạn hoặc chưa tới giờ")
+                hideAllManagementCards()
+                return
+            }
+        }
+
+        val isManager = (p == 0 || p == 1)
+
+        binding.cardSendEKey.visibility = if (isManager) View.VISIBLE else View.GONE
+        binding.cardEKeys.visibility = if (isManager) View.VISIBLE else View.GONE
+        binding.cardICCard.visibility = if (isManager) View.VISIBLE else View.GONE
+        binding.cardPasscodes.visibility = if (isManager) View.VISIBLE else View.GONE
+        binding.cardGeneratePasscode.visibility = if (isManager) View.VISIBLE else View.GONE
+
+        binding.cardRecords.visibility = View.VISIBLE
+
+        binding.btnSettingsIcon.visibility = if (p == 0) View.VISIBLE else View.GONE
+    }
+
+    private fun disableControlSlider(message: String) {
+        binding.lockSlider.alpha = 0.5f
+        binding.thumb.isEnabled = false
+        binding.tvArrow.text = message
+    }
+
+    private fun hideAllManagementCards() {
+        val cards = listOf(
+            binding.cardSendEKey, binding.cardICCard, binding.cardEKeys,
+            binding.cardPasscodes, binding.cardGeneratePasscode,
+        )
+        cards.forEach { it.visibility = View.GONE }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupSliderLogic() {
         binding.thumb.setOnTouchListener { v, event ->
-            val maxTranslationX = binding.lockSlider.width - binding.thumb.width - (binding.lockSlider.paddingStart + binding.lockSlider.paddingEnd)
-            val minTranslationX = 0f
+            val maxTranslationX = binding.lockSlider.width - binding.thumb.width -
+                    (binding.lockSlider.paddingStart + binding.lockSlider.paddingEnd)
 
             when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                }
                 MotionEvent.ACTION_MOVE -> {
                     var newX = event.rawX - binding.lockSlider.x - v.width / 2
-                    newX = newX.coerceIn(minTranslationX, maxTranslationX.toFloat())
+                    newX = newX.coerceIn(0f, maxTranslationX.toFloat())
                     v.translationX = newX
-                    if (isLocked && newX > maxTranslationX * 0.9f) {
-                        v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                    } else if (!isLocked && newX < maxTranslationX * 0.1f) {
-                        v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                    }
+
                     updateIconAlpha(newX, maxTranslationX.toFloat())
+
+                    if (isLocked && newX > maxTranslationX * 0.9f) {
+                        v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    }
                 }
                 MotionEvent.ACTION_UP -> {
                     if (isLocked) {
@@ -116,226 +211,123 @@ class DoorDetailFragment : Fragment() {
                         }
                     } else {
                         if (v.translationX < maxTranslationX * 0.25f) {
-                            v.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
                             performLockAction()
                         } else {
                             animateToUnlocked()
                         }
                     }
-                    v.performClick()
                 }
-                else -> return@setOnTouchListener false
             }
             true
         }
+    }
 
-        binding.cardSendEKey.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToSendEKeyFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardICCard.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToIcCardFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardEKeys.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToEKeysFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardPasscodes.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToPasscodesFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardGeneratePasscode.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToGenerateEKeyFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardAuthorizedAdmin.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToAuthorizedAdminFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardRecords.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToRecordsFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.cardSettings.setOnClickListener {
-            it.pressAnim()
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToSettingsFragment(args.doorId)
-            findNavController().navigate(action)
-        }
-        binding.btnSettingsIcon.setOnClickListener {
-            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToSettingsFragment(args.doorId)
-            findNavController().navigate(action)
+    private fun showUnlockDialog() {
+        val door = viewModel.currentDoor.value
+
+        if (door?.doorCode.isNullOrBlank()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Yêu cầu thiết lập")
+                .setMessage("Cửa này chưa được thiết lập mã (Door Code). Bạn cần tạo mã cửa trong phần cài đặt trước khi mở khóa.")
+                .setNegativeButton("Đóng", null)
+                .show()
+
+            animateToLocked()
+            return
         }
 
-        view.post {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_unlock, null)
+        val etPasscode = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPasscode)
+        val btnCancel = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCancel)
+        val btnConfirm = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnConfirmUnlock)
+
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.CustomAlertDialogTheme)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
             animateToLocked()
         }
 
-        binding.btnBackIcon.setOnClickListener {
-            findNavController().popBackStack()
-        }
+        btnConfirm.setOnClickListener {
+            val enteredPass = etPasscode.text.toString()
 
-    }
+            if (enteredPass == door.doorCode) {
+                viewModel.unlockDoor(args.doorId)
 
-
-    private fun showUnlockDialog(){
-        val input = EditText(requireContext()).apply{
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Nhập mã mở cửa(6 chữ số)"
-        }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Mở cửa")
-            .setMessage("Vui lòng nhập mật khẩu chính để mở cửa.")
-            .setView(input)
-            .setPositiveButton("Mở cửa") { _, _ ->
-                val enteredPass = input.text.toString()
-                if (enteredPass.length != 6 || !enteredPass.all { it.isDigit() }) {
-                    Toast.makeText(requireContext(), "Mật khẩu phải là 6 chữ số!", Toast.LENGTH_SHORT).show()
-                    animateToLocked()
-                    return@setPositiveButton
-                }
-
-                viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.getDoorById(args.doorId).collect { door ->
-                        if(door?.masterPasscode == enteredPass){
-                            val payload = JSONObject().apply {
-                                put("action", "unlock")
-                            }.toString()
-                            MqttClientManager.publish("${door.mqttTopicPrefix}/control", payload)
-
-                            performUnlockAnimation()
-                            animateToUnlocked()
-                            Toast.makeText(requireContext(), "Khóa đã mở!", Toast.LENGTH_SHORT).show()
-
-                            delay(8000)
-                        }else {
-                            Toast.makeText(
-                                requireContext(),
-                                "Mật khẩu không đúng!",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            animateToLocked()
-                        }
-                    }
-                }
-            }
-            .setNegativeButton("Hủy") { dialog, _ ->
-                animateToLocked()
+                animateToUnlocked()
+                Toast.makeText(requireContext(), "Đang gửi lệnh mở khóa...", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
+            } else {
+                etPasscode.error = "Mã cửa không chính xác"
             }
-            .show()
+        }
+
+        dialog.show()
     }
+
+    private fun performLockAction() {
+        viewModel.lockDoor(args.doorId)
+
+        animateToLocked()
+        Toast.makeText(requireContext(), "Đang gửi lệnh khóa...", Toast.LENGTH_SHORT).show()
+    }
+
+
+    private fun setupNavigationClickListeners() {
+        binding.cardPasscodes.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToPasscodesFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+
+        binding.cardICCard.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToIcCardFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+
+        binding.cardRecords.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToRecordsFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+
+        binding.cardSendEKey.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToSendEKeyFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+
+        binding.cardEKeys.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToEKeysFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+
+        binding.cardGeneratePasscode.setOnClickListener {
+            val action = DoorDetailFragmentDirections.actionDoorDetailFragmentToGenerateEKeyFragment(args.doorId)
+            findNavController().navigate(action)
+        }
+    }
+
 
     private fun animateToLocked() {
-        binding.thumb.animate()
-            .translationX(0f)
-            .setDuration(300)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-
-        binding.icLockInactive.animate()
-            .alpha(0.3f)
-            .setDuration(150)
-            .start()
-
-        binding.icUnlockInactive.animate()
-            .alpha(0f)
-            .setDuration(150)
-            .start()
-
-        binding.tvArrow.text = "› › ›"
-        binding.lockSlider.setBackgroundResource(R.drawable.bg_slider_pill)
+        binding.thumb.animate().translationX(0f).setDuration(300).setInterpolator(DecelerateInterpolator()).start()
         binding.icThumb.setImageResource(R.drawable.ic_lock)
-
+        binding.tvArrow.text = "› › ›"
         isLocked = true
     }
 
-
     private fun animateToUnlocked() {
-        val maxTranslationX =
-            binding.lockSlider.width - binding.thumb.width -
-                    (binding.lockSlider.paddingStart + binding.lockSlider.paddingEnd)
-
-        binding.thumb.animate()
-            .translationX(maxTranslationX.toFloat())
-            .setDuration(300)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-
-        binding.icLockInactive.animate()
-            .alpha(0f)
-            .setDuration(150)
-            .start()
-
-        binding.icUnlockInactive.animate()
-            .alpha(0.3f)
-            .setDuration(150)
-            .start()
-
-        binding.tvArrow.text = "‹ ‹ ‹"
-        binding.lockSlider.setBackgroundResource(R.drawable.bg_slider_pill_locked)
+        val max = binding.lockSlider.width - binding.thumb.width - (binding.lockSlider.paddingStart * 2)
+        binding.thumb.animate().translationX(max.toFloat()).setDuration(300).setInterpolator(DecelerateInterpolator()).start()
         binding.icThumb.setImageResource(R.drawable.ic_unlock)
-
+        binding.tvArrow.text = "‹ ‹ ‹"
         isLocked = false
-    }
-
-
-    private fun View.pressAnim() {
-        animate().scaleX(0.95f).scaleY(0.95f).setDuration(100).withEndAction {
-            animate().scaleX(1f).scaleY(1f).setDuration(100).start()
-        }.start()
     }
 
     private fun updateIconAlpha(translationX: Float, maxX: Float) {
         val progress = (translationX / maxX).coerceIn(0f, 1f)
-
-        if (isLocked) {
-            binding.icLockInactive.alpha = 0.3f * (1f - progress)
-            binding.icUnlockInactive.alpha = 0.3f * progress
-        } else {
-            val reversedProgress = 1f - progress
-
-            binding.icLockInactive.alpha = 0.3f * (1f - reversedProgress)
-            binding.icUnlockInactive.alpha = 0.3f * reversedProgress
-        }
-    }
-
-    private fun performUnlockAnimation() {
-        binding.ivLock.animate()
-            .translationY(-20f)
-            .alpha(0.7f)
-            .setDuration(300)
-            .withEndAction {
-                binding.ivLock.animate()
-                    .translationY(0f)
-                    .alpha(1f)
-                    .setDuration(200)
-                    .start()
-            }
-            .start()
-    }
-
-    private fun performLockAction(){
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getDoorById(args.doorId).collect { door ->
-                if(door!=null){
-                    val payload = JSONObject().apply {
-                        put("action", "lock")
-                    }.toString()
-                    MqttClientManager.publish("${door.mqttTopicPrefix}/control", payload)
-                    animateToLocked() // Animation slider
-                    Toast.makeText(requireContext(), "Khóa đã khóa!", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        binding.icLockInactive.alpha = 0.3f * (1f - progress)
+        binding.icUnlockInactive.alpha = 0.3f * progress
     }
 
     override fun onDestroyView() {

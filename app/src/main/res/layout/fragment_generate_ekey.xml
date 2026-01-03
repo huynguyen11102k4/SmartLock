@@ -1,194 +1,229 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
-    <LinearLayout
+    android:layout_height="match_parent">
+
+    <ImageView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:padding="24dp"
-        android:background="#FFFFFF">
+        android:layout_height="match_parent"
+        android:src="@drawable/bg4"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#90000000" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#2196F3"
-            android:title="Tạo e-key"
-            android:titleTextColor="#FFFFFF"
+            android:background="@android:color/transparent"
+            app:title="Tạo eKey mới"
+            app:titleTextColor="#FFFFFF"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="#FFFFFF"/>
+            app:navigationIconTint="#FFFFFF"
+            app:layout_constraintTop_toTopOf="parent"/>
 
-        <ImageView
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_marginTop="32dp"
-            android:src="@drawable/ic_vpn_key"
-            app:tint="#2196F3"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Tạo mã mở khóa tạm thời"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#222222"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Người nhận chỉ cần nhập mã này trên bàn phím"
-            android:textSize="15sp"
-            android:textColor="#666666"/>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilEkeyType"
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:hint="Chọn loại e-key"
-            app:endIconMode="dropdown_menu"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/actvEkeyType"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <LinearLayout
-            android:id="@+id/layoutTimed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="16dp"
-            android:visibility="gone">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Thời gian bắt đầu"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-                <EditText
-                    android:id="@+id/etStartTime"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:focusable="false"
-                    android:cursorVisible="false"
-                    android:inputType="none"
-                    android:backgroundTint="#CCCCCC"/>
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:hint="Thời gian kết thúc"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-                <EditText
-                    android:id="@+id/etEndTime"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:focusable="false"
-                    android:cursorVisible="false"
-                    android:inputType="none"
-                    android:backgroundTint="#CCCCCC"/>
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/layout24h"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:padding="16dp"
-            android:background="#E3F2FD"
-            android:text="E-key sẽ tự động hết hạn sau 24 giờ kể từ bây giờ"
-            android:textColor="#1976D2"
-            android:textSize="15sp"
-            android:visibility="gone"
-            android:gravity="center"
-            app:drawableStartCompat="@drawable/ic_info"
-            android:drawablePadding="8dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnGenerate"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="32dp"
-            android:text="TẠO E-KEY NGAY"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:cornerRadius="12dp"
-            android:backgroundTint="#2196F3"/>
-
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardResult"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="12dp"
-            android:visibility="gone">
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintTop_toBottomOf="@id/toolbar"
+            app:layout_constraintBottom_toBottomOf="parent">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="32dp"
-                android:gravity="center">
+                android:gravity="center_horizontal"
+                android:padding="24dp">
+
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_marginTop="16dp"
+                    android:src="@drawable/ic_vpn_key"
+                    app:tint="#C4A26A"/>
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Mã e-key đã sẵn sàng!"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#222"/>
-
-                <TextView
-                    android:id="@+id/tvGeneratedCode"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
-                    android:text="123 456"
-                    android:textSize="52sp"
+                    android:text="Mã mở khóa tạm thời"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.25"
-                    android:fontFamily="monospace"
-                    android:textColor="#2196F3"/>
+                    android:textColor="#FFFFFF"/>
 
                 <TextView
-                    android:id="@+id/tvInfo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:text="Hiệu lực: Một lần"
-                    android:textSize="16sp"
+                    android:layout_marginTop="8dp"
+                    android:text="Tạo mã an toàn cho người thân hoặc khách"
+                    android:textSize="14sp"
+                    android:textColor="#B3FFFFFF"
+                    android:gravity="center"/>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilEkeyType"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:hint="Loại eKey"
+                    android:textColorHint="#80FFFFFF"
+                    app:hintTextColor="#C4A26A"
+                    app:boxStrokeColor="#C4A26A"
+                    app:endIconTint="#FFFFFF">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actvEkeyType"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/layoutTimed"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Thời gian bắt đầu"
+                        android:textColorHint="#80FFFFFF"
+                        app:hintTextColor="#C4A26A"
+                        app:boxStrokeColor="#C4A26A">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etStartTime"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:focusable="false"
+                            android:textColor="#FFFFFF"
+                            android:cursorVisible="false"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Thời gian kết thúc"
+                        android:textColorHint="#80FFFFFF"
+                        app:hintTextColor="#C4A26A"
+                        app:boxStrokeColor="#C4A26A">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etEndTime"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:focusable="false"
+                            android:textColor="#FFFFFF"
+                            android:cursorVisible="false"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/layout24h"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="16dp"
+                    android:background="@drawable/bg_circle_white_alpha"
+                    android:text="E-key sẽ tự động hết hạn sau 24 giờ"
+                    android:textColor="#C4A26A"
+                    android:textSize="14sp"
+                    android:visibility="gone"
                     android:gravity="center"
-                    android:textColor="#444"/>
+                    app:drawableStartCompat="@drawable/ic_info"
+                    app:drawableTint="#C4A26A"
+                    android:drawablePadding="12dp"/>
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCopy"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="28dp"
-                    android:text="Sao chép mã"
-                    app:icon="@drawable/ic_content_copy"
-                    app:strokeColor="#2196F3"
-                    app:iconTint="#2196F3"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+                    android:id="@+id/btnGenerate"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="32dp"
+                    android:text="TẠO MÃ NGAY"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    android:backgroundTint="#C4A26A"
+                    android:textColor="#121212" />
 
-    </LinearLayout>
-</ScrollView>
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="32dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="12dp"
+                    app:cardBackgroundColor="#2D2D2D"
+                    app:strokeColor="#C4A26A"
+                    app:strokeWidth="1dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp"
+                        android:gravity="center">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Mã của bạn là"
+                            android:textSize="16sp"
+                            android:textColor="#B3FFFFFF"/>
+
+                        <TextView
+                            android:id="@+id/tvGeneratedCode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="123 456"
+                            android:textSize="48sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.1"
+                            android:fontFamily="monospace"
+                            android:textColor="#FFFFFF"/>
+
+                        <TextView
+                            android:id="@+id/tvInfo"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="Hiệu lực: Sử dụng một lần"
+                            android:textSize="14sp"
+                            android:textColor="#B3FFFFFF"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCopy"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="SAO CHÉP MÃ"
+                            android:textColor="#C4A26A"
+                            app:icon="@drawable/ic_content_copy"
+                            app:iconTint="#C4A26A"/>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

@@ -1,166 +1,195 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:layout_height="match_parent">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="?attr/actionBarSize"
-        android:background="#2196F3"
-        android:title="Mã khóa chính"
-        android:titleTextColor="#FFFFFF"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:navigationIcon="@drawable/ic_arrow_back"
-        app:navigationIconTint="#FFFFFF"/>
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/bg4"
+        android:scaleType="centerCrop" />
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardCurrentPasscode"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#70000000" />
 
-        <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="0dp"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
+            app:title="Mã khóa chính"
+            app:titleTextColor="#FFFFFF"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="#FFFFFF"/>
+
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="28dp"
-            android:gravity="center">
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintTop_toBottomOf="@id/toolbar"
+            app:layout_constraintBottom_toBottomOf="parent">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Mã khóa chính (Master)"
-                android:textSize="17sp"
-                android:textColor="#666666" />
-
-            <TextView
-                android:id="@+id/tvCurrentPasscode"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="••••••"
-                android:textSize="40sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.25"
-                android:textColor="#2196F3" />
-
-            <TextView
-                android:id="@+id/tvHintUnset"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Chưa đặt mã khóa chính"
-                android:textSize="15sp"
-                android:textColor="#E91E63"
-                android:visibility="gone" />
-
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardChangePasscode"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="6dp"
-        app:layout_constraintTop_toBottomOf="@id/cardCurrentPasscode"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Đặt / Đổi mã khóa chính"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="#2196F3" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilOldPasscode"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:hint="Nhập mã khóa cũ (bắt buộc khi đã đặt)"
-                app:boxStrokeColor="#2196F3"
-                app:errorEnabled="true"
-                app:endIconMode="password_toggle"
-                android:visibility="gone">
+                android:orientation="vertical"
+                android:padding="16dp">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etOldPasscode"
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardCurrentPasscode"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="numberPassword"
-                    android:maxLength="10"
-                    android:digits="0123456789" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="8dp"
+                    app:cardBackgroundColor="#2D2D2D"
+                    app:strokeColor="#C4A26A"
+                    app:strokeWidth="1dp">
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilNewPasscode"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:hint="Nhập mã mới (6 chữ số)"
-                app:boxStrokeColor="#2196F3"
-                app:errorEnabled="true"
-                app:endIconMode="clear_text">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="32dp"
+                        android:gravity="center">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etNewPasscode"
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Mã khóa chính (Master)"
+                            android:textSize="16sp"
+                            android:textColor="#B3FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentPasscode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="••••••"
+                            android:textSize="44sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.2"
+                            android:textColor="#FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/tvHintUnset"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="Chưa đặt mã khóa chính"
+                            android:textSize="14sp"
+                            android:textColor="#FF5252"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardChangePasscode"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="numberPassword"
-                    android:maxLength="10"
-                    android:digits="0123456789" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="6dp"
+                    app:cardBackgroundColor="#2D2D2D"
+                    app:strokeColor="#40FFFFFF"
+                    app:strokeWidth="1dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnChangePasscode"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="28dp"
-                android:text="Cập nhật mã khóa chính"
-                android:textSize="16sp"
-                app:cornerRadius="14dp"
-                android:backgroundTint="#2196F3"
-                android:insetTop="0dp"
-                android:insetBottom="0dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp">
 
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Thiết lập mã mới"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#C4A26A" />
 
-    <TextView
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Mã tạm thời (e-key một lần, có thời hạn…)\nbạn có thể tạo trong mục “Gửi e-key”"
-        android:textSize="15sp"
-        android:textColor="#666666"
-        android:gravity="center"
-        android:lineSpacingExtra="4dp"
-        android:layout_margin="32dp"
-        app:layout_constraintTop_toBottomOf="@id/cardChangePasscode"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilOldPasscode"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:hint="Mã cũ (nếu có)"
+                            android:textColorHint="#80FFFFFF"
+                            app:hintTextColor="#C4A26A"
+                            app:boxStrokeColor="#C4A26A"
+                            app:endIconTint="#FFFFFF"
+                            app:endIconMode="password_toggle"
+                            android:visibility="gone">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etOldPasscode"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberPassword"
+                                android:textColor="#FFFFFF"
+                                android:maxLength="10" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilNewPasscode"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:hint="Nhập mã mới (6 chữ số)"
+                            android:textColorHint="#80FFFFFF"
+                            app:hintTextColor="#C4A26A"
+                            app:boxStrokeColor="#C4A26A"
+                            app:endIconTint="#FFFFFF"
+                            app:endIconMode="clear_text">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etNewPasscode"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberPassword"
+                                android:textColor="#FFFFFF"
+                                android:maxLength="10" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnChangePasscode"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:layout_marginTop="28dp"
+                            android:text="CẬP NHẬT NGAY"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="16dp"
+                            android:backgroundTint="#C4A26A"
+                            android:textColor="#121212" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Lưu ý: Mã tạm thời có thể được tạo trong phần 'Generate E-Key'"
+                    android:textSize="14sp"
+                    android:textColor="#80FFFFFF"
+                    android:gravity="center"
+                    android:layout_marginTop="32dp"
+                    android:paddingHorizontal="24dp" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

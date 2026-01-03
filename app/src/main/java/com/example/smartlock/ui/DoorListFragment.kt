@@ -1,9 +1,6 @@
 package com.example.smartlock.ui
 
-import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,92 +12,151 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.CircleCropTransformation
+import com.bumptech.glide.Glide
 import com.example.smartlock.R
-import com.example.smartlock.model.Door
 import com.example.smartlock.databinding.DoorListFragmentBinding
+import com.example.smartlock.model.entity.Door
+import com.example.smartlock.viewmodel.DoorUiState
+import com.example.smartlock.viewmodel.DoorViewModel
+import com.example.smartlock.viewmodel.UserViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class DoorListFragment : Fragment() {
+
     private var _binding: DoorListFragmentBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: DoorViewModel by viewModels {
-        DoorViewModelFactory(requireContext().applicationContext)
-    }
+    private val viewModel: DoorViewModel by viewModels()
 
-    private lateinit var rvDoors: RecyclerView
-    private val doors = mutableListOf<Door>()
+    private val userViewModel: UserViewModel by viewModels()
 
-    private val scanLauncher = registerForActivityResult(ScanContract()) { result: ScanIntentResult ->
-        if (result.contents != null) parseQrCode(result.contents)
+    private lateinit var doorAdapter: DoorAdapter
+
+    private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            parseQrCode(result.contents)
+        }
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         _binding = DoorListFragmentBinding.inflate(inflater, container, false)
-
-        Log.d("DoorList", "Binding created: ${_binding != null}")
-        Log.d("DoorList", "FAB exists: ${binding.fabAddDoor != null}")
-        Log.d("DoorList", "RV exists: ${binding.rvDoors != null}")
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        rvDoors = binding.rvDoors
-        rvDoors.layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
+        setupRecyclerView()
+        setupListeners()
+        observeViewModel()
+        observeUserProfile()
 
-        val adapter = DoorAdapter { door ->
-            Log.d("DoorList", "Door clicked: ${door.id}")
-            val action = DoorListFragmentDirections.actionDoorListFragmentToDoorDetailFragment(door.id)
-            findNavController().navigate(action)
-        }
-        binding.rvDoors.adapter = adapter
+        userViewModel.getUserProfile()
+        viewModel.loadDoor()
+    }
 
-        if (viewModel.doors.value.isEmpty()) {
-            val dummyDoor = Door(
-                id = "12345",
-                name = "Cửa chính",
-                permission = "Chủ sở hữu",
-                battery = 85,
-                macAddress = "AA:BB:CC:DD:EE:FF",
-                mqttTopicPrefix = "door/123"
-            )
-            viewModel.insertDoor(dummyDoor)
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.doors.collect { list ->
-                    if (list.isNotEmpty()) {
-                        binding.shimmerViewContainer.stopShimmer()
-                        binding.shimmerViewContainer.visibility = View.GONE
-
-                        binding.rvDoors.visibility = View.VISIBLE
-                        adapter.submitList(list)
-                    }
-                }
+    private fun setupRecyclerView() {
+        doorAdapter = DoorAdapter(
+            onDoorClick = { door ->
+                val action = DoorListFragmentDirections.actionDoorListFragmentToDoorDetailFragment(door.id)
+                findNavController().navigate(action)
+            },
+            onMoreClick = { view, door ->
+                showPopupMenu(view, door)
             }
-        }
+        )
 
+        binding.rvDoors.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = doorAdapter
+            itemAnimator = null
+        }
+    }
+
+    private fun setupListeners() {
         binding.fabAddDoor.setOnClickListener {
             showAddDoorDialog()
         }
 
-//        viewModel.reSubscribeAll()
+        binding.ivProfile.setOnClickListener {
+            findNavController().navigate(R.id.action_doorListFragment_to_accountSettingsFragment)
+        }
     }
 
-    @SuppressLint("UseCompatLoadingForDrawables")
-    private fun showAddDoorDialog() {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_door, null)
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.doors.collect { list ->
+                    doorAdapter.submitList(list)
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    when (state) {
+                        is DoorUiState.Loading -> {
+                            binding.shimmerViewContainer.visibility = View.VISIBLE
+                            binding.shimmerViewContainer.startShimmer()
+                            binding.rvDoors.visibility = View.GONE
+                        }
+                        is DoorUiState.Success -> {
+                            hideLoading()
+                        }
+                        is DoorUiState.Error -> {
+                            hideLoading()
+                            Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
+                        }
+                        is DoorUiState.DoorCreated -> {
+                            hideLoading()
+                            Toast.makeText(requireContext(), "Thêm thiết bị thành công", Toast.LENGTH_SHORT).show()
+                            viewModel.loadDoor()
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showPopupMenu(view: View, door: Door) {
+        val popup = androidx.appcompat.widget.PopupMenu(requireContext(), view)
+        // Bạn cần tạo file menu_door_item.xml trong res/menu
+        popup.menuInflater.inflate(R.menu.menu_door_item, popup.menu)
+
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_edit -> {
+                    showEditDoorDialog(door)
+                    true
+                }
+                R.id.action_delete -> {
+                    showDeleteConfirmDialog(door)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showEditDoorDialog(door: Door) {
+        // Sử dụng concept dialog tương tự như dialog_add_door của bạn
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_door, null)
+        val edtName = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.edtDoorName)
+        edtName.setText(door.name)
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogView)
@@ -108,52 +164,89 @@ class DoorListFragment : Fragment() {
 
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        dialogView.background = resources.getDrawable(R.drawable.bg_dialog_dark, null)
+        dialogView.findViewById<View>(R.id.btnSave).setOnClickListener {
+            val newName = edtName.text.toString().trim()
+            if (newName.isNotEmpty()) {
+                viewModel.updateDoor(door.id, newName)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showDeleteConfirmDialog(door: Door) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Xóa thiết bị")
+            .setMessage("Bạn có chắc chắn muốn xóa '${door.name}'? Hành động này không thể hoàn tác.")
+            .setNegativeButton("Hủy", null)
+            .setPositiveButton("Xóa") { _, _ ->
+                viewModel.deleteDoor(door.id)
+            }
+            .show()
+    }
+
+    private fun observeUserProfile() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                userViewModel.currentUser.collect { user ->
+                    user?.let {
+                        val welcomeTv = binding.tvWelcome
+                        welcomeTv?.text = "Welcome Home, ${it.name}"
+
+                        binding.ivProfile.load(it.avatarUrl) {
+                            crossfade(true)
+                            placeholder(R.drawable.ic_person)
+                            transformations(CircleCropTransformation())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun hideLoading() {
+        binding.shimmerViewContainer.stopShimmer()
+        binding.shimmerViewContainer.visibility = View.GONE
+        binding.rvDoors.visibility = View.VISIBLE
+    }
+
+    private fun showAddDoorDialog() {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_door, null)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         dialogView.findViewById<View>(R.id.btnQrScan).setOnClickListener {
             dialog.dismiss()
-            startQrScanner()
+            val options = ScanOptions()
+                .setPrompt("Quét mã QR trên hộp hoặc thân khóa")
+                .setBeepEnabled(true)
+                .setOrientationLocked(false)
+            scanLauncher.launch(options)
         }
 
         dialogView.findViewById<View>(R.id.btnBleScan).setOnClickListener {
             dialog.dismiss()
-            startBleScan()
+            findNavController().navigate(R.id.action_doorListFragment_to_bleProvisionFragment)
         }
 
         dialog.show()
     }
 
-    private fun startQrScanner() {
-        val options = ScanOptions()
-            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Đặt mã QR vào khung")
-        scanLauncher.launch(options)
-    }
-
     private fun parseQrCode(qrContent: String) {
         val parts = qrContent.split("|")
         if (parts.size >= 4 && parts[0] == "SMARTLOCK") {
-            val door = Door(
-                id = parts[3],
+            viewModel.createDoor(
+                doorCode = parts[3],
                 name = parts[1],
-                permission = "Chủ sở hữu",
-                battery = 100,
-                macAddress = parts[3],
-                mqttTopicPrefix = "door/${parts[2]}"
+                mqttTopicPrefix = parts[2],
+                macAddress = parts[3]
             )
-            viewModel.insertDoor(door)
         } else {
-            Toast.makeText(context, "Mã QR không hợp lệ", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Mã QR không đúng định dạng thiết bị", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun startBleScan() {
-        val action = DoorListFragmentDirections.actionDoorListFragmentToBleProvisionFragment()
-        findNavController().navigate(action)
-    }
-
-    private fun addDoorFromQr(door: Door) {
-        viewModel.insertDoor(door)
     }
 
     override fun onDestroyView() {

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.navigation.safeargs)
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -107,4 +108,19 @@ dependencies {
     debugImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
 
     implementation("com.facebook.shimmer:shimmer:0.5.0")
+
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.57.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.57.1")
+
+    // Security
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+
+    // Glide
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    implementation("io.coil-kt:coil:2.5.0")
+    implementation("io.coil-kt:coil-svg:2.5.0")
 }

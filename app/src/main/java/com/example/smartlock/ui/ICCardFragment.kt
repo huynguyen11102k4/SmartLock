@@ -1,43 +1,39 @@
 package com.example.smartlock.ui
 
-import android.app.AlertDialog
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.smartlock.MqttClientManager
-import com.example.smartlock.MqttService
-import com.example.smartlock.R
 import com.example.smartlock.databinding.FragmentIcCardBinding
-import com.example.smartlock.model.ICCard
+import com.example.smartlock.model.entity.ICCard
+import com.example.smartlock.viewmodel.ICCardUiState
+import com.example.smartlock.viewmodel.ICCardViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import org.json.JSONArray
-import org.json.JSONObject
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class ICCardFragment : Fragment() {
     private var _binding: FragmentIcCardBinding? = null
     private val binding get() = _binding!!
 
     private val args: ICCardFragmentArgs by navArgs()
-    private val viewModel: DoorViewModel by activityViewModels{
-        DoorViewModelFactory(requireActivity().applicationContext)
-    }
+
+    private val viewModel: ICCardViewModel by viewModels()
 
     private lateinit var adapter: ICCardAdapter
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentIcCardBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -45,15 +41,19 @@ class ICCardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
+        setupRecyclerView()
+        setupListeners()
+        observeViewModel()
 
-        viewModel.requestICCardSync(args.doorId)
-        viewModel.subscribeToICCardList(args.doorId)
+        viewModel.setCurrentDoor(args.doorId)
+        viewModel.loadICCards(args.doorId)
+    }
 
-        adapter = ICCardAdapter{ card ->
+    private fun setupRecyclerView() {
+        adapter = ICCardAdapter { card ->
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Xóa thẻ IC?")
-                .setMessage("Thẻ ${card.name} sẽ bị xóa khỏi danh sách")
+                .setMessage("Thẻ ${card.name} sẽ bị xóa khỏi hệ thống.")
                 .setPositiveButton("Xóa") { _, _ ->
                     viewModel.deleteICCard(args.doorId, card.id)
                 }
@@ -64,66 +64,78 @@ class ICCardFragment : Fragment() {
         binding.rvICCards.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@ICCardFragment.adapter
-            setHasFixedSize(true)
         }
+    }
 
-        viewLifecycleOwner.lifecycleScope.launchWhenCreated {
-            viewModel.getICCardsForDoor(args.doorId).collect { list ->
-                adapter.submitList(list.sortedBy { it.name })
-                binding.tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-            }
-        }
+    private fun setupListeners() {
+        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         binding.fabAddICCard.setOnClickListener {
-            val modes = arrayOf("Nhập tay UID", "Quẹt thẻ 2 lần vào khóa")
+            val modes = arrayOf("Nhập tay UID", "Kích hoạt chế độ quẹt thẻ trên khóa")
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Chọn cách thêm thẻ IC")
+                .setTitle("Thêm thẻ IC mới")
                 .setItems(modes) { _, which ->
                     when (which) {
                         0 -> showManualEntryDialog()
-                        1 -> startSwipeMode()
+                        1 -> viewModel.startSwipeAdd(args.doorId)
                     }
                 }
                 .show()
         }
     }
 
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.icCards.collect { list ->
+                    adapter.submitList(list)
+                    binding.tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        // Quan sát trạng thái UI (Loading, Success, Error)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    when (state) {
+                        is ICCardUiState.CardAdded -> {
+                            Toast.makeText(context, "Thêm thẻ thành công", Toast.LENGTH_SHORT).show()
+                        }
+                        is ICCardUiState.CardDeleted -> {
+                            Toast.makeText(context, "Đã xóa thẻ", Toast.LENGTH_SHORT).show()
+                        }
+                        is ICCardUiState.SwipeAddMode -> {
+                            MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("Chế độ quẹt thẻ")
+                                .setMessage(state.message)
+                                .setPositiveButton("Đã hiểu", null)
+                                .show()
+                        }
+                        is ICCardUiState.Error -> {
+                            Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+
     private fun showManualEntryDialog() {
         val input = EditText(requireContext()).apply {
-            hint = "Nhập UID thẻ (hex, ví dụ: 04A1B2C3D4E5F6)"
+            hint = "Ví dụ: 04A1B2C3"
         }
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Thêm thẻ IC thủ công")
-            .setMessage("Nhập UID của thẻ (có thể lấy từ log khi quẹt thử)")
+            .setTitle("Nhập UID thẻ")
             .setView(input)
             .setPositiveButton("Thêm") { _, _ ->
                 val uid = input.text.toString().trim().uppercase()
                 if (uid.isNotEmpty()) {
-                    val card = ICCard(
-                        id = uid,
-                        doorId = args.doorId,
-                        name = "Card #${uid.take(8)}",
-                        status = "Active"
-                    )
-                    viewModel.addICCard(args.doorId, card)
+                    viewModel.addICCard(args.doorId, uid, "Thẻ #${uid.take(4)}")
                 }
             }
             .setNegativeButton("Hủy", null)
-            .show()
-    }
-
-    private fun startSwipeMode() {
-        val door = viewModel.doors.value.find { it.id == args.doorId } ?: return
-        val payload = JSONObject().apply {
-            put("action", "start_swipe_add")
-        }.toString()
-
-        MqttClientManager.publish("${door.mqttTopicPrefix}/iccards", payload)
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Chế độ thêm thẻ bằng quẹt")
-            .setMessage("Vui lòng quẹt thẻ mới 2 lần liên tiếp vào mặt khóa để xác nhận thêm.\n\nFirmware sẽ tự động thêm nếu 2 UID trùng nhau.")
-            .setPositiveButton("OK", null)
             .show()
     }
 

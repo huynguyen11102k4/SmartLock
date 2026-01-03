@@ -5,26 +5,28 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartlock.databinding.FragmentRecordsBinding
-import kotlin.getValue
+import com.example.smartlock.viewmodel.DoorViewModel
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class RecordsFragment : Fragment() {
     private var _binding: FragmentRecordsBinding? = null
     private val binding get() = _binding!!
 
     private val args: RecordsFragmentArgs by navArgs()
+    private val viewModel: DoorViewModel by viewModels()
+    private lateinit var recordAdapter: RecordAdapter
 
-    private val viewModel: DoorViewModel by lazy {
-        DoorViewModelFactory(requireActivity().applicationContext).create(DoorViewModel::class.java)
-    }
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentRecordsBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -32,18 +34,33 @@ class RecordsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val adapter = RecordAdapter()
+        setupToolbar()
+        setupRecyclerView()
+        observeData()
+
+        viewModel.setCurrentDoor(args.doorId)
+        viewModel.loadRecords(args.doorId)
+    }
+
+    private fun setupToolbar() {
+        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
+    }
+
+    private fun setupRecyclerView() {
+        recordAdapter = RecordAdapter()
         binding.rvRecords.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            this.adapter = adapter
+            layoutManager = LinearLayoutManager(context)
+            adapter = recordAdapter
         }
+    }
 
-//        viewModel.subscribeToState(args.doorId)
-//        viewModel.subscribeToRecords(args.doorId)
-
-        viewLifecycleOwner.lifecycleScope.launchWhenStarted {
-            viewModel.getRecordsForDoor(args.doorId).collect { records ->
-                adapter.submitList(records)
+    private fun observeData() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.doorRecords.collect { records ->
+                    recordAdapter.submitList(records)
+                    binding.tvEmpty.visibility = if (records.isEmpty()) View.VISIBLE else View.GONE
+                }
             }
         }
     }

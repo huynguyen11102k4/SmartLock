@@ -3,12 +3,158 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/doorListFragment">
+    app:startDestination="@id/authFlow">
+
+    <navigation
+        android:id="@+id/authFlow"
+        app:startDestination="@id/loginFragment">
+
+        <fragment
+            android:id="@+id/loginFragment"
+            android:name="com.example.smartlock.ui.LoginFragment"
+            android:label="Login"
+            tools:layout="@layout/fragment_login">
+
+            <action
+                android:id="@+id/action_loginFragment_to_registerFragment"
+                app:destination="@id/registerFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left" />
+
+            <action
+                android:id="@+id/action_loginFragment_to_forgotPasswordFragment"
+                app:destination="@id/forgotPasswordFragment" />
+
+            <action
+                android:id="@+id/action_loginFragment_to_doorListFragment"
+                app:destination="@id/doorListFragment"
+                app:popUpTo="@id/authFlow"
+                app:popUpToInclusive="true" />
+        </fragment>
+
+        <fragment
+            android:id="@+id/registerFragment"
+            android:name="com.example.smartlock.ui.RegisterFragment"
+            android:label="Register"
+            tools:layout="@layout/fragment_register">
+
+            <argument
+                android:name="googleToken"
+                app:argType="string"
+                android:defaultValue=""
+                app:nullable="true" />
+
+            <argument
+                android:name="googleEmail"
+                app:argType="string"
+                android:defaultValue=""
+                app:nullable="true" />
+
+            <argument
+                android:name="googleName"
+                app:argType="string"
+                android:defaultValue=""
+                app:nullable="true" />
+
+            <action
+                android:id="@+id/action_registerFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:popUpTo="@id/loginFragment"
+                app:popUpToInclusive="true" />
+
+            <action
+                android:id="@+id/action_registerFragment_to_verifyOtpFragment"
+                app:destination="@id/verifyOtpFragment">
+                <argument
+                    android:name="email"
+                    app:argType="string" />
+                <argument
+                    android:name="googleToken"
+                    app:argType="string"
+                    android:defaultValue=""
+                    app:nullable="true" />
+                <argument
+                    android:name="password"
+                    app:argType="string"
+                    app:nullable="true"
+                    android:defaultValue="@null" />
+            </action>
+        </fragment>
+
+        <fragment
+            android:id="@+id/forgotPasswordFragment"
+            android:name="com.example.smartlock.ui.ForgotPasswordFragment"
+            android:label="Quên mật khẩu"
+            tools:layout="@layout/fragment_forgot_password">
+
+            <action
+                android:id="@+id/action_forgotPasswordFragment_to_verifyOtpFragment"
+                app:destination="@id/verifyOtpFragment">
+
+                <argument
+                    android:name="email"
+                    app:argType="string" />
+
+                <argument
+                    android:name="newPassword"
+                    app:argType="string"
+                    android:defaultValue=""
+                    app:nullable="true"/>
+            </action>
+
+            <action
+                android:id="@+id/action_forgotPasswordFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:popUpTo="@id/loginFragment"
+                app:popUpToInclusive="true" />
+        </fragment>
+
+        <fragment
+            android:id="@+id/verifyOtpFragment"
+            android:name="com.example.smartlock.ui.VerifyOtpFragment"
+            android:label="Xác thực OTP"
+            tools:layout="@layout/fragment_verify_otp">
+
+            <argument
+                android:name="email"
+                app:argType="string" />
+
+            <argument
+                android:name="googleToken"
+                app:argType="string"
+                android:defaultValue=""
+                app:nullable="true" />
+
+            <argument
+                android:name="newPassword"
+                app:argType="string"
+                android:defaultValue="" />
+
+            <argument
+                android:name="password"
+                app:argType="string"
+                app:nullable="true"
+                android:defaultValue="@null" />
+
+            <action
+                android:id="@+id/action_verifyOtpFragment_to_doorListFragment"
+                app:destination="@id/doorListFragment"
+                app:popUpTo="@id/authFlow"
+                app:popUpToInclusive="true" />
+        </fragment>
+    </navigation>
+
     <fragment
         android:id="@+id/doorListFragment"
         android:name="com.example.smartlock.ui.DoorListFragment"
         android:label="Danh sách cửa"
         tools:layout="@layout/door_list_fragment">
+
+        <action
+            android:id="@+id/action_doorListFragment_to_accountSettingsFragment"
+            app:destination="@id/accountSettingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
 
         <action
             android:id="@+id/action_doorListFragment_to_doorDetailFragment"
@@ -61,18 +207,8 @@
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left" />
         <action
-            android:id="@+id/action_doorDetailFragment_to_authorizedAdminFragment"
-            app:destination="@id/authorizedAdminFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left" />
-        <action
             android:id="@+id/action_doorDetailFragment_to_recordsFragment"
             app:destination="@id/recordsFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left" />
-        <action
-            android:id="@+id/action_doorDetailFragment_to_settingsFragment"
-            app:destination="@id/settingsFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left" />
     </fragment>
@@ -134,30 +270,10 @@
     </fragment>
 
     <fragment
-        android:id="@+id/authorizedAdminFragment"
-        android:name="com.example.smartlock.ui.AuthorizedAdminFragment"
-        android:label="Quản trị được ủy quyền"
-        tools:layout="@layout/fragment_authorized_admin">
-        <argument
-            android:name="doorId"
-            app:argType="string" />
-    </fragment>
-
-    <fragment
         android:id="@+id/recordsFragment"
         android:name="com.example.smartlock.ui.RecordsFragment"
         android:label="Nhật ký ra vào"
         tools:layout="@layout/fragment_records">
-        <argument
-            android:name="doorId"
-            app:argType="string" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/settingsFragment"
-        android:name="com.example.smartlock.ui.SettingsFragment"
-        android:label="Cài đặt"
-        tools:layout="@layout/fragment_settings">
         <argument
             android:name="doorId"
             app:argType="string" />
@@ -169,5 +285,25 @@
         android:label="BleProvisionFragment"
         tools:layout="@layout/fragment_ble_provision">
     </fragment>
+
+    <fragment
+        android:id="@+id/accountSettingsFragment"
+        android:name="com.example.smartlock.ui.AccountSettingsFragment"
+        android:label="Cài đặt tài khoản"
+        tools:layout="@layout/fragment_account_settings" >
+        <action
+            android:id="@+id/action_accountSettingsFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+    </fragment>
+    <fragment
+        android:id="@+id/forgotPasswordFragment"
+        android:name="com.example.smartlock.ui.ForgotPasswordFragment"
+        android:label="ForgotPasswordFragment" />
+    <fragment
+        android:id="@+id/verifyOtpFragment"
+        android:name="com.example.smartlock.ui.VerifyOtpFragment"
+        android:label="VerifyOtpFragment" />
 
 </navigation>

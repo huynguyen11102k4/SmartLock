@@ -9,10 +9,26 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
+import androidx.navigation.findNavController
+import androidx.navigation.fragment.NavHostFragment
+import com.example.smartlock.data.AppDatabase
 import com.example.smartlock.databinding.ActivityMainBinding
+import com.example.smartlock.utils.AuthManager
+import com.example.smartlock.utils.TokenManager
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+
+    private lateinit var navController: NavController
+
+    @Inject
+    lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,24 +36,18 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(binding.root)
 
-        startMqttService()
-//        requestIgnoreBatteryOptimizations()
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        if (tokenManager.getAccessToken() != null) {
+            navController.navigate(R.id.doorListFragment)
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
-        }
-    }
-
-    private fun startMqttService(){
-        val intent = Intent(this, MqttService::class.java)
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-            Log.d("MainActivity", "Starting MqttService as foreground service")
-            startForegroundService(intent)
-        } else {
-            Log.d("MainActivity", "Starting MqttService as background service")
-            startService(intent)
         }
     }
 

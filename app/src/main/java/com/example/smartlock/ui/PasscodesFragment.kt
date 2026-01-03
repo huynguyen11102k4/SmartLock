@@ -1,42 +1,37 @@
 package com.example.smartlock.ui
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.smartlock.MqttClientManager
-import com.example.smartlock.R
 import com.example.smartlock.databinding.FragmentPasscodesBinding
-import com.example.smartlock.model.Passcode
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.example.smartlock.viewmodel.DoorUiState
+import com.example.smartlock.viewmodel.DoorViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
-import kotlin.getValue
 
+@AndroidEntryPoint
 class PasscodesFragment : Fragment() {
     private var _binding: FragmentPasscodesBinding? = null
     private val binding get() = _binding!!
 
     private val args: PasscodesFragmentArgs by navArgs()
-    private val viewModel: DoorViewModel by activityViewModels{
-        DoorViewModelFactory(requireContext().applicationContext)
-    }
+    private val doorViewModel: DoorViewModel by viewModels()
 
-    private lateinit var adapter: PasscodeAdapter
+    private var currentDoorCode: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         _binding = FragmentPasscodesBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -44,75 +39,85 @@ class PasscodesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        doorViewModel.setCurrentDoor(args.doorId)
+
+        setupListeners()
+        observeViewModel()
+    }
+
+    private fun setupListeners() {
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
-
-        viewLifecycleOwner.lifecycleScope.launchWhenStarted {
-            viewModel.doors.collect { doorList ->
-                val door = doorList.find { it.id == args.doorId } ?: return@collect
-                val master = door.masterPasscode
-
-                if (master.isNullOrBlank()) {
-                    binding.tvCurrentPasscode.text = "Chưa đặt"
-                    binding.tvHintUnset.visibility = View.VISIBLE
-                    binding.tilOldPasscode.visibility = View.GONE
-                } else {
-                    binding.tvCurrentPasscode.text = "••••••"
-                    binding.tvHintUnset.visibility = View.GONE
-                    binding.tilOldPasscode.visibility = View.VISIBLE
-                }
-            }
-        }
 
         binding.btnChangePasscode.setOnClickListener {
             val oldCode = binding.etOldPasscode.text.toString().trim()
             val newCode = binding.etNewPasscode.text.toString().trim()
 
-            if (newCode.length != 6|| !newCode.all { it.isDigit() }) {
-                binding.tilNewPasscode.error = "Mã phải 6 chữ số"
-                return@setOnClickListener
-            }
-            binding.tilNewPasscode.error = null
-
-            val door = viewModel.doors.value.find { it.id == args.doorId }!!
-            val currentMaster = door.masterPasscode
-
-            if (currentMaster == null) {
-                if (oldCode.isNotEmpty()) {
-                    binding.tilOldPasscode.error = "Lần đầu không cần nhập mã cũ"
-                    return@setOnClickListener
-                }
-            } else {
-                if (oldCode != currentMaster) {
-                    binding.tilOldPasscode.error = "Mã cũ không đúng"
+            if (!currentDoorCode.isNullOrEmpty()) {
+                if (oldCode != currentDoorCode) {
+                    binding.tilOldPasscode.error = "Mã cũ không chính xác"
                     return@setOnClickListener
                 }
             }
             binding.tilOldPasscode.error = null
 
-            val payload = JSONObject().apply {
-                put("action", "add")
-                put("type", "permanent")
-                put("code", newCode)
-                if (currentMaster != null) put("old_code", oldCode)
-            }.toString()
-
-            if (!MqttClientManager.isConnected()) {
-                Toast.makeText(context, "Không có kết nối mạng/MQTT", Toast.LENGTH_LONG).show()
-                Log.e("MQTT PasscodeFragment", "Not connected")
+            if (newCode.length < 6) {
+                binding.tilNewPasscode.error = "Mã mới phải có ít nhất 6 chữ số"
                 return@setOnClickListener
             }
+            binding.tilNewPasscode.error = null
 
-            MqttClientManager.publish("${door.mqttTopicPrefix}/passcodes", payload)
+            doorViewModel.updateDoorCode(args.doorId, newCode)
+        }
+    }
 
-            viewModel.updateMasterPasscode(args.doorId, newCode)
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                doorViewModel.currentDoor.collect { door ->
+                    door?.let {
+                        currentDoorCode = it.doorCode
 
-            Toast.makeText(requireContext(), "Đổi mã khóa chính thành công!", Toast.LENGTH_SHORT).show()
-            binding.etOldPasscode.text?.clear()
-            binding.etNewPasscode.text?.clear()
-            binding.etNewPasscode.requestFocus()
+                        if (currentDoorCode.isNullOrEmpty()) {
+                            binding.tvCurrentPasscode.text = "Chưa đặt"
+                            binding.tilOldPasscode.visibility = View.GONE
+                        } else {
+                            binding.tvCurrentPasscode.text = "••••••"
+                            binding.tilOldPasscode.visibility = View.VISIBLE
+                        }
+                    }
+                }
+            }
         }
 
-        viewModel.subscribeToPasscodeList(args.doorId)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                doorViewModel.uiState.collect { state ->
+                    when (state) {
+                        is DoorUiState.Loading -> {
+                            binding.btnChangePasscode.isEnabled = false
+                            binding.btnChangePasscode.text = "ĐANG GỬI LỆNH..."
+                        }
+                        is DoorUiState.DoorCodeUpdated -> {
+                            binding.btnChangePasscode.isEnabled = true
+                            binding.btnChangePasscode.text = "CẬP NHẬT NGAY"
+                            Toast.makeText(context, "Đã đổi mã khóa chính thành công!", Toast.LENGTH_SHORT).show()
+
+                            binding.etOldPasscode.text?.clear()
+                            binding.etNewPasscode.text?.clear()
+
+                            doorViewModel.resetState()
+                        }
+                        is DoorUiState.Error -> {
+                            binding.btnChangePasscode.isEnabled = true
+                            binding.btnChangePasscode.text = "CẬP NHẬT NGAY"
+                            Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                            doorViewModel.resetState()
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {

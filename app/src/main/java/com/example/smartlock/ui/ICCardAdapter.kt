@@ -9,11 +9,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.smartlock.databinding.ItemIcCardBinding
-import com.example.smartlock.model.ICCard
+import com.example.smartlock.model.entity.ICCard
 
 class ICCardAdapter(
     private val onDelete: (ICCard) -> Unit
 ) : ListAdapter<ICCard, ICCardAdapter.VH>(DIFF) {
+
     companion object {
         val DIFF = object : DiffUtil.ItemCallback<ICCard>() {
             override fun areItemsTheSame(old: ICCard, new: ICCard) = old.id == new.id
@@ -22,13 +23,20 @@ class ICCardAdapter(
     }
 
     inner class VH(private val b: ItemIcCardBinding) : RecyclerView.ViewHolder(b.root) {
-        @SuppressLint("ClickableViewAccessibility")
+        @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
         fun bind(c: ICCard) {
             b.tvCardName.text = c.name
-            b.tvStatus.text = c.status
-            b.root.setOnLongClickListener {
-                onDelete(c); true
+
+            val displayId = if (c.id.length > 4) "**** ${c.id.takeLast(4)}" else c.id
+            b.root.findViewById<android.widget.TextView>(com.example.smartlock.R.id.tvStatus).apply {
+                text = "ID: $displayId"
             }
+
+            b.root.setOnLongClickListener {
+                onDelete(c)
+                true
+            }
+
             b.root.setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {

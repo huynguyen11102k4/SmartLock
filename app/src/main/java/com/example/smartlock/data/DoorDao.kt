@@ -6,7 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.example.smartlock.model.Door
+import com.example.smartlock.model.entity.Door
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -15,26 +15,25 @@ interface DoorDao {
     fun getAllDoors(): Flow<List<Door>>
 
     @Query("SELECT * FROM doors WHERE id = :doorId")
-    suspend fun getDoorById(doorId: String): Door?
+    fun getDoorById(doorId: String): Flow<Door?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDoor(door: Door)
+    suspend fun insert(door: Door)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertDoors(doors: List<Door>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(doors: List<Door>)
 
     @Update
-    suspend fun updateDoor(door: Door)
+    suspend fun update(door: Door)
 
-    @Delete
-    suspend fun deleteDoor(door: Door)
+    @Query("UPDATE doors SET doorCode = :newCode WHERE id = :doorId")
+    suspend fun updateDoorCode(doorId: String, newCode: String?)
 
     @Query("DELETE FROM doors WHERE id = :doorId")
-    suspend fun deleteDoorById(doorId: String)
+    suspend fun deleteDoor(doorId: String)
 
     @Query("DELETE FROM doors")
     suspend fun deleteAll()
 
-    @Query("UPDATE doors SET masterPasscode = :code WHERE id = :doorId")
-    suspend fun updateMasterPasscode(doorId: String, code: String)
+
 }

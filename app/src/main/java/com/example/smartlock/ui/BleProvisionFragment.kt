@@ -13,7 +13,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelUuid
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,8 +27,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartlock.databinding.FragmentBleProvisionBinding
-import com.example.smartlock.model.Door
+import com.example.smartlock.model.entity.Door
 import com.example.smartlock.utils.LockBleManager
+import com.example.smartlock.viewmodel.DoorViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import no.nordicsemi.android.ble.observer.ConnectionObserver
@@ -301,15 +301,12 @@ class BleProvisionFragment : Fragment() {
 
                         if (ok) {
                             val deviceMac = safeDeviceAddress(device) ?: mac
-                            val door = Door(
-                                id = deviceMac,
+                            viewModel.createDoor(
+                                doorCode = "123456",
                                 name = name,
-                                permission = "Chủ sở hữu",
-                                battery = 100,
-                                macAddress = deviceMac,
-                                mqttTopicPrefix = topic
+                                mqttTopicPrefix = topic,
+                                macAddress = deviceMac
                             )
-                            viewModel.insertDoor(door)
                             ble.disconnect().enqueue()
                             toast("Cấu hình thành công!")
                             delay(1000)

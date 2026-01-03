@@ -3,6 +3,8 @@ package com.example.smartlock.ui
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.icu.util.Calendar
 import android.os.Bundle
@@ -12,59 +14,57 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.example.smartlock.databinding.FragmentGenerateEkeyBinding
-import com.example.smartlock.model.Passcode
-import kotlinx.coroutines.flow.first
+import com.example.smartlock.viewmodel.PasscodeUiState
+import com.example.smartlock.viewmodel.PasscodeViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Locale
 
+@AndroidEntryPoint
 class GenerateEKeyFragment : Fragment() {
 
     private var _binding: FragmentGenerateEkeyBinding? = null
     private val binding get() = _binding!!
 
     private val args: GenerateEKeyFragmentArgs by navArgs()
-    private val viewModel: DoorViewModel by activityViewModels {
-        DoorViewModelFactory(requireContext().applicationContext)
-    }
+    private val viewModel: PasscodeViewModel by viewModels()
 
-    private var selectedType = ""
-    private var startTime = ""
-    private var endTime = ""
+    private var selectedTypeCode = -1
+    private var startTime: Calendar? = null
+    private var endTime: Calendar? = null
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentGenerateEkeyBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupUI()
+        observeViewModel()
+    }
 
-        binding.toolbar.setNavigationOnClickListener {
-            findNavController().popBackStack()
-        }
+    private fun setupUI() {
+        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
-        val types = arrayOf("Mã một lần", "Có thời hạn", "Hiệu lực 24 giờ")
-        binding.actvEkeyType.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, types)
-        )
+        val types = arrayOf("Mã một lần", "Mã có thời hạn (Timed)", "Mã 24 giờ")
+        binding.actvEkeyType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, types))
 
         binding.actvEkeyType.setOnItemClickListener { _, _, position, _ ->
-            selectedType = when (position) {
-                0 -> "one-time"
-                1 -> "timed"
-                2 -> "timed-24h"
-                else -> ""
+            selectedTypeCode = when (position) {
+                0 -> 0
+                1 -> 1
+                2 -> 1
+                else -> -1
             }
-
             binding.layoutTimed.visibility = if (position == 1) View.VISIBLE else View.GONE
             binding.layout24h.visibility = if (position == 2) View.VISIBLE else View.GONE
         }
@@ -73,25 +73,74 @@ class GenerateEKeyFragment : Fragment() {
         binding.etEndTime.setOnClickListener { showDateTimePicker(false) }
 
         binding.btnGenerate.setOnClickListener {
-            if (selectedType.isEmpty()) {
-                Toast.makeText(requireContext(), "Vui lòng chọn loại e-key", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            val code = String.format("%06d", (100000..999999).random())
+            val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+
+            val selectedPosition = binding.actvEkeyType.text.toString().let { types.indexOf(it) }
+
+            val (finalStart, finalEnd) = when (selectedPosition) {
+                0 -> null to null
+                1 -> {
+                    if (startTime == null || endTime == null) {
+                        Toast.makeText(context, "Vui lòng chọn thời gian", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    isoFormat.format(startTime?.time) to isoFormat.format(endTime?.time)
+                }
+                2 -> {
+                    val start = Calendar.getInstance()
+                    val end = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 24) }
+                    isoFormat.format(start.time) to isoFormat.format(end.time)
+                }
+                else -> {
+                    Toast.makeText(context, "Vui lòng chọn loại mã", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
             }
 
-            if (selectedType == "timed" && (startTime.isBlank() || endTime.isBlank())) {
-                Toast.makeText(requireContext(), "Vui lòng chọn thời gian hiệu lực", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            viewLifecycleOwner.lifecycleScope.launch {
-                generateAndSaveEKey()
-            }
+            val typeToSend = if (selectedPosition == 0) 0 else 1
+            viewModel.addPasscode(args.doorId, code, typeToSend, finalStart, finalEnd)
+            binding.tvGeneratedCode.text = code.chunked(3).joinToString(" ")
         }
 
         binding.btnCopy.setOnClickListener {
             val code = binding.tvGeneratedCode.text.toString().replace(" ", "")
-            requireContext().copyToClipboard("e-key", code)
-            Toast.makeText(requireContext(), "Đã sao chép $code", Toast.LENGTH_SHORT).show()
+            val clipboard =
+                requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("E-key", code)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "Đã sao chép: ${code}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    when (state) {
+                        is PasscodeUiState.PasscodeAdded -> {
+                            binding.cardResult.visibility = View.VISIBLE
+                            binding.btnGenerate.isEnabled = true
+                            binding.btnGenerate.text = "TẠO MÃ KHÁC"
+                            Toast.makeText(context, "Yêu cầu tạo eKey thành công", Toast.LENGTH_SHORT).show()
+
+                            viewModel.resetState()
+                        }
+                        is PasscodeUiState.Error -> {
+                            binding.btnGenerate.isEnabled = true
+                            binding.btnGenerate.text = "TẠO MÃ NGAY"
+                            Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+
+                            viewModel.resetState()
+                        }
+                        is PasscodeUiState.Loading -> {
+                            binding.btnGenerate.isEnabled = false
+                            binding.btnGenerate.text = "ĐANG XỬ LÝ..."
+                        }
+                        else -> Unit
+                    }
+                }
+            }
         }
     }
 
@@ -99,103 +148,16 @@ class GenerateEKeyFragment : Fragment() {
         val c = Calendar.getInstance()
         DatePickerDialog(requireContext(), { _, y, m, d ->
             TimePickerDialog(requireContext(), { _, h, min ->
-                val timeStr = String.format("%02d/%02d/%04d %02d:%02d", d, m + 1, y, h, min)
+                val selected = Calendar.getInstance().apply { set(y, m, d, h, min) }
+                val displayFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
                 if (isStart) {
-                    startTime = timeStr
-                    binding.etStartTime.setText(timeStr)
+                    startTime = selected
+                    binding.etStartTime.setText(displayFormat.format(selected.time))
                 } else {
-                    endTime = timeStr
-                    binding.etEndTime.setText(timeStr)
+                    endTime = selected
+                    binding.etEndTime.setText(displayFormat.format(selected.time))
                 }
             }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
         }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
     }
-
-    @SuppressLint("DefaultLocale")
-    private suspend fun generateAndSaveEKey() {
-        var code: String
-        var attempts = 0
-
-        do {
-            code = String.format("%06d", (100000..999999).random())
-            attempts++
-            if (attempts > 20) {
-                Toast.makeText(requireContext(), "Không thể tạo mã mới, vui lòng thử lại", Toast.LENGTH_LONG).show()
-                return
-            }
-        } while (isCodeExists(code))
-
-        val validity = when (selectedType) {
-            "one-time" -> ""
-            "timed-24h" -> {
-                val c = Calendar.getInstance()
-                c.add(Calendar.HOUR_OF_DAY, 24)
-                val end = String.format(
-                    "%02d/%02d/%04d %02d:%02d",
-                    c.get(Calendar.DAY_OF_MONTH),
-                    c.get(Calendar.MONTH) + 1,
-                    c.get(Calendar.YEAR),
-                    c.get(Calendar.HOUR_OF_DAY),
-                    c.get(Calendar.MINUTE)
-                )
-                JSONObject().apply {
-                    put("start", getCurrentDateTime())
-                    put("end", end)
-                }.toString()
-            }
-            "timed" -> {
-                JSONObject().apply {
-                    put("start", startTime)
-                    put("end", endTime)
-                }.toString()
-            }
-            else -> ""
-        }
-
-        val passcode = Passcode(
-            code = code,
-            doorId = args.doorId,
-            type = if (selectedType == "timed-24h") "timed" else selectedType,
-            validity = validity,
-            status = "Active"
-        )
-
-        binding.tvGeneratedCode.text = code
-        binding.tvInfo.text = when (selectedType) {
-            "one-time" -> "Loại: Mã dùng 1 lần\nSẽ tự xóa sau khi mở khóa"
-            "timed-24h" -> "Loại: Hiệu lực 24 giờ\nTừ bây giờ đến 24h sau"
-            else -> "Loại: Có thời hạn\nTừ: $startTime\nĐến: $endTime"
-        }
-        binding.cardResult.visibility = View.VISIBLE
-
-        viewModel.addEKey(args.doorId, passcode)
-    }
-
-    @SuppressLint("DefaultLocale")
-    private fun getCurrentDateTime(): String {
-        val c = Calendar.getInstance()
-        return String.format(
-            "%02d/%02d/%04d %02d:%02d",
-            c.get(Calendar.DAY_OF_MONTH),
-            c.get(Calendar.MONTH) + 1,
-            c.get(Calendar.YEAR),
-            c.get(Calendar.HOUR_OF_DAY),
-            c.get(Calendar.MINUTE)
-        )
-    }
-
-    private suspend fun isCodeExists(code: String): Boolean {
-        val list = viewModel.getEKeysForDoor(args.doorId).first()
-        return list.any { it.code == code }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-}
-
-fun Context.copyToClipboard(label: String, text: String) {
-    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
 }
